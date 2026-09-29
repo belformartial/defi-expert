@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#070912">
+  <title>DÉFI EXPERT — Reflex</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+
+  <section id="home" class="screen active">
+    <div class="brand">
+      <div class="brand-mark">⚡</div>
+      <p class="eyebrow">MINI-JEU DE RÉFLEXES</p>
+      <h1>DÉFI <span>EXPERT</span></h1>
+      <p class="tagline">Teste tes réflexes. Monte ton combo. Bats ton record.</p>
+    </div>
+
+    <div class="player-card">
+      <div class="player-icon">👤</div>
+      <div class="player-field">
+        <label for="playerName">TON PRÉNOM OU PSEUDO</label>
+        <input id="playerName" type="text" maxlength="18" autocomplete="nickname"
+               placeholder="Ex. Belfort" spellcheck="false">
+      </div>
+      <button id="clearName" class="clear-btn" aria-label="Effacer le pseudo">×</button>
+    </div>
+
+    <p id="nameError" class="error hidden">Entre un prénom ou un pseudo pour continuer.</p>
+
+    <div class="preview-card">
+      <div class="preview-symbol">◆</div>
+      <div>
+        <strong>Prêt à relever le défi ?</strong>
+        <small>Ta progression sera liée à ton pseudo.</small>
+      </div>
+    </div>
+
+    <button id="startBtn" class="primary-btn">▶ COMMENCER</button>
+    <button id="howBtn" class="text-btn">Comment jouer ?</button>
+    <p class="creator">Créé par <strong>Belfort</strong></p>
+  </section>
+
+  <section id="how" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" data-back>←</button>
+      <h2>Comment jouer</h2>
+    </div>
+    <div class="rules">
+      <div class="rule"><b>🎯</b><div><strong>Trouve la cible</strong><span>Touche le carreau qui contient le symbole affiché en haut.</span></div></div>
+      <div class="rule"><b>❤️</b><div><strong>Protège tes vies</strong><span>Une erreur ou un délai dépassé coûte une vie.</span></div></div>
+      <div class="rule"><b>🔥</b><div><strong>Construis ton combo</strong><span>Enchaîne les bonnes réponses pour augmenter ton score.</span></div></div>
+      <div class="rule"><b>⚡</b><div><strong>Va vite</strong><span>Plus tu avances, plus le jeu accélère.</span></div></div>
+    </div>
+    <button class="primary-btn" data-back>J'AI COMPRIS</button>
+  </section>
+
+  <section id="game" class="screen">
+    <header class="hud">
+      <div class="hud-item"><small>SCORE</small><strong id="score">0</strong></div>
+      <div class="target"><small>CIBLE</small><div id="targetSymbol">◆</div></div>
+      <div class="hud-item right"><small>NIVEAU</small><strong id="level">1</strong></div>
+    </header>
+
+    <div class="player-strip">
+      <span>👤</span><strong id="gamePlayer">Joueur</strong>
+    </div>
+
+    <div class="game-meta">
+      <div id="hearts" class="hearts">❤️❤️❤️</div>
+      <div class="combo">COMBO <b id="combo">0</b></div>
+    </div>
+
+    <div class="progress"><div id="timerBar"></div></div>
+    <p id="statusText" class="status">TOUCHE LE BON SYMBOLE</p>
+    <div id="board" class="board" aria-label="Zone de jeu"></div>
+
+    <div id="survivalBanner" class="survival hidden">
+      <span>⚠️</span> MODE SURVIE — DERNIÈRE VIE
+    </div>
+
+    <button id="quitBtn" class="quit-btn">Quitter</button>
+  </section>
+
+  <section id="gameover" class="screen">
+    <div class="result-icon">💥</div>
+    <p class="eyebrow">PARTIE TERMINÉE</p>
+    <h2>GAME OVER</h2>
+    <p class="result-player">Joueur : <strong id="finalPlayer">Joueur</strong></p>
+
+    <div class="result-card">
+      <div><span>SCORE</span><strong id="finalScore">0</strong></div>
+      <div><span>RECORD</span><strong id="finalBest">0</strong></div>
+      <div><span>COMBO MAX</span><strong id="finalCombo">0</strong></div>
+      <div><span>NIVEAU</span><strong id="finalLevel">1</strong></div>
+    </div>
+
+    <p id="newRecord" class="new-record hidden">🏆 NOUVEAU RECORD !</p>
+    <button id="againBtn" class="primary-btn">↻ REJOUER</button>
+    <button id="changePlayerBtn" class="text-btn">Changer de pseudo</button>
+    <button id="homeBtn" class="text-btn">Retour à l'accueil</button>
+  </section>
+</main>
+
+<div id="flash" class="flash"></div>
+<script src="game.js"></script>
+</body>
+</html>
