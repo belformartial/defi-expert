@@ -2,42 +2,58 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#070b16">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
+  <meta
+    name="description"
+    content="DÉFI EXPERT — teste tes réflexes, ton attention et ta rapidité."
+  >
+
+  <meta name="theme-color" content="#08111f">
 
   <title>DÉFI EXPERT — Créé par Belfort</title>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=final-20260929">
 </head>
 
 <body>
 
+  <!-- =========================
+       APPLICATION
+  ========================== -->
+
   <main class="app">
-
-    <!-- =========================
-         EN-TÊTE
-    ========================== -->
-    <header class="topbar">
-
-      <div class="brand">
-        DÉFI <span>EXPERT</span>
-      </div>
-
-      <div class="creator">
-        Créé par Belfort
-      </div>
-
-    </header>
-
 
     <!-- =========================
          ACCUEIL
     ========================== -->
+
     <section id="home" class="screen active">
 
-      <div class="hero">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-title">
+            DÉFI <span>EXPERT</span>
+          </div>
 
-        <div class="badge">
+          <div class="brand-subtitle">
+            MODE RÉFLEXE
+          </div>
+        </div>
+
+        <div class="creator">
+          Créé par Belfort
+        </div>
+      </header>
+
+
+      <div class="home-content">
+
+        <div class="hero-badge">
           ⚡ MODE RÉFLEXE
         </div>
 
@@ -45,370 +61,416 @@
           Teste tes réflexes.
         </h1>
 
-        <p>
-          Observe le symbole cible, choisis la bonne réponse
-          et tente de battre ton meilleur score.
+        <p class="hero-text">
+          Observe. Réfléchis. Réagis.
+          <br>
+          Jusqu'où peux-tu aller ?
         </p>
 
-      </div>
 
+        <!-- =========================
+             JOUEUR
+        ========================== -->
 
-      <!-- PSEUDO -->
-      <div class="card name-card">
+        <div class="player-card">
 
-        <label for="playerName">
-          Ton prénom ou pseudo
-        </label>
+          <label for="playerName">
+            TON PRÉNOM OU PSEUDO
+          </label>
 
-        <div class="name-row">
+          <div class="name-input-wrap">
 
-          <input
-            id="playerName"
-            type="text"
-            maxlength="24"
-            autocomplete="nickname"
-            placeholder="Ex. Belfort"
-          >
+            <input
+              id="playerName"
+              type="text"
+              maxlength="20"
+              autocomplete="nickname"
+              placeholder="Ex. Belfort"
+              spellcheck="false"
+            >
+
+            <button
+              id="clearName"
+              class="clear-name"
+              type="button"
+              aria-label="Effacer le nom"
+              title="Effacer"
+            >
+              ×
+            </button>
+
+          </div>
+
+          <div
+            id="nameError"
+            class="name-error"
+            role="alert"
+            aria-live="polite"
+          ></div>
 
           <button
-            id="clearName"
-            class="icon-btn"
+            id="startBtn"
+            class="primary-btn"
             type="button"
-            aria-label="Effacer le pseudo"
           >
-            ×
+            COMMENCER
           </button>
 
         </div>
 
-        <div id="nameError" class="error"></div>
 
-        <button
-          id="startBtn"
-          class="primary big"
-          type="button"
-        >
-          COMMENCER
-        </button>
+        <!-- =========================
+             MENU
+        ========================== -->
+
+        <div class="menu-grid">
+
+          <button
+            id="leaderboardBtn"
+            class="menu-card"
+            type="button"
+          >
+            <span class="menu-icon">🏆</span>
+
+            <span>
+              <strong>Classement</strong>
+              <small>Voir les meilleurs scores</small>
+            </span>
+          </button>
+
+
+          <button
+            id="howBtn"
+            class="menu-card"
+            type="button"
+          >
+            <span class="menu-icon">🎯</span>
+
+            <span>
+              <strong>Comment jouer</strong>
+              <small>Découvrir les règles</small>
+            </span>
+          </button>
+
+
+          <button
+            id="aboutBtn"
+            class="menu-card"
+            type="button"
+          >
+            <span class="menu-icon">ℹ️</span>
+
+            <span>
+              <strong>À propos</strong>
+              <small>À propos de DÉFI EXPERT</small>
+            </span>
+          </button>
+
+        </div>
 
       </div>
 
 
-      <!-- MENU -->
-      <nav class="menu">
-
-        <button
-          id="leaderboardBtn"
-          class="menu-btn"
-          type="button"
-        >
-          🏆
-          <span>Classement</span>
-        </button>
-
-
-        <button
-          id="howBtn"
-          class="menu-btn"
-          type="button"
-        >
-          🎯
-          <span>Comment jouer</span>
-        </button>
-
-
-        <button
-          id="aboutBtn"
-          class="menu-btn"
-          type="button"
-        >
-          ℹ️
-          <span>À propos</span>
-        </button>
-
-      </nav>
+      <footer class="footer">
+        © DÉFI EXPERT · Créé par Belfort
+      </footer>
 
     </section>
-
 
 
     <!-- =========================
          COMMENT JOUER
     ========================== -->
+
     <section id="how" class="screen">
 
-      <button
-        class="back"
-        data-back="home"
-        type="button"
-      >
-        ← Retour
-      </button>
+      <div class="page-header">
 
+        <button
+          class="back-btn"
+          data-back="home"
+          type="button"
+        >
+          ←
+        </button>
 
-      <div class="card page-card">
-
-        <h2>
-          Comment jouer
-        </h2>
-
-
-        <ol>
-
-          <li>
-            Entre ton prénom ou ton pseudo.
-          </li>
-
-          <li>
-            Appuie sur « COMMENCER ».
-          </li>
-
-          <li>
-            Observe attentivement le symbole cible.
-          </li>
-
-          <li>
-            Choisis rapidement le symbole correspondant.
-          </li>
-
-          <li>
-            Une bonne réponse augmente ton score et ton combo.
-          </li>
-
-          <li>
-            Une erreur fait perdre une vie.
-          </li>
-
-          <li>
-            La difficulté augmente progressivement.
-          </li>
-
-        </ol>
-
-
-        <p class="muted">
-          Ton meilleur score est enregistré dans le classement.
-        </p>
+        <div>
+          <h2>Comment jouer</h2>
+          <p>Les règles du défi</p>
+        </div>
 
       </div>
 
-    </section>
 
+      <div class="info-card">
+
+        <div class="info-item">
+          <div class="info-number">01</div>
+
+          <div>
+            <h3>Entre ton pseudo</h3>
+            <p>
+              Choisis ton prénom ou ton pseudo avant de commencer.
+            </p>
+          </div>
+        </div>
+
+
+        <div class="info-item">
+          <div class="info-number">02</div>
+
+          <div>
+            <h3>Observe la cible</h3>
+            <p>
+              Un symbole apparaît au centre de l'écran.
+            </p>
+          </div>
+        </div>
+
+
+        <div class="info-item">
+          <div class="info-number">03</div>
+
+          <div>
+            <h3>Choisis la bonne réponse</h3>
+            <p>
+              Sélectionne rapidement le symbole correspondant.
+            </p>
+          </div>
+        </div>
+
+
+        <div class="info-item">
+          <div class="info-number">04</div>
+
+          <div>
+            <h3>Fais monter ton score</h3>
+            <p>
+              Les bonnes réponses augmentent ton combo et ton score.
+            </p>
+          </div>
+        </div>
+
+
+        <div class="info-item">
+          <div class="info-number">05</div>
+
+          <div>
+            <h3>Attention aux erreurs</h3>
+            <p>
+              Trois erreurs mettent fin à la partie.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+
+      <button
+        class="secondary-btn"
+        data-back="home"
+        type="button"
+      >
+        RETOUR
+      </button>
+
+    </section>
 
 
     <!-- =========================
          CLASSEMENT
     ========================== -->
+
     <section id="leaderboard" class="screen">
 
-      <button
-        class="back"
-        data-back="home"
-        type="button"
-      >
-        ← Retour
-      </button>
-
-
-      <div class="page-title">
-
-        <div>
-
-          <div class="badge">
-            🏆 CLASSEMENT
-          </div>
-
-          <h2>
-            Classement
-          </h2>
-
-        </div>
-
+      <div class="page-header">
 
         <button
-          id="refreshLeaderboard"
-          class="small-btn"
+          class="back-btn"
+          data-back="home"
           type="button"
         >
-          ↻ Actualiser
+          ←
         </button>
 
-      </div>
-
-
-      <!-- LISTE DES JOUEURS -->
-      <div
-        id="leaderboardList"
-        class="leaderboard-list"
-      >
-
-        <div class="loading">
-          Chargement du classement…
+        <div>
+          <h2>Classement</h2>
+          <p>Les meilleurs scores</p>
         </div>
 
       </div>
 
 
-      <!-- POSITION DU JOUEUR -->
+      <div class="leaderboard-card">
+
+        <div class="leaderboard-head">
+
+          <span>RANG</span>
+          <span>JOUEUR</span>
+          <span>SCORE</span>
+
+        </div>
+
+
+        <div
+          id="leaderboardList"
+          class="leaderboard-list"
+        >
+          <div class="loading">
+            Chargement du classement...
+          </div>
+        </div>
+
+      </div>
+
+
       <div
         id="myRank"
         class="my-rank"
       ></div>
 
-    </section>
 
+      <button
+        id="refreshLeaderboard"
+        class="secondary-btn"
+        type="button"
+      >
+        ACTUALISER
+      </button>
+
+
+      <button
+        class="text-btn"
+        data-back="home"
+        type="button"
+      >
+        ← Retour à l'accueil
+      </button>
+
+    </section>
 
 
     <!-- =========================
          À PROPOS
     ========================== -->
+
     <section id="about" class="screen">
 
-      <button
-        class="back"
-        data-back="home"
-        type="button"
-      >
-        ← Retour
-      </button>
+      <div class="page-header">
 
+        <button
+          class="back-btn"
+          data-back="home"
+          type="button"
+        >
+          ←
+        </button>
 
-      <div class="card page-card">
-
-        <div class="logo-mark">
-          DE
-        </div>
-
-
-        <h2>
-          DÉFI EXPERT
-        </h2>
-
-
-        <p>
-          Un jeu de réflexe, de rapidité et de concentration.
-          Teste tes capacités et essaie d'améliorer ton score.
-        </p>
-
-
-        <div class="creator-box">
-
-          <strong>
-            Créé par Belfort
-          </strong>
-
-          <span>
-            Merci de jouer à DÉFI EXPERT.
-          </span>
-
+        <div>
+          <h2>À propos</h2>
+          <p>DÉFI EXPERT</p>
         </div>
 
       </div>
 
-    </section>
 
+      <div class="about-card">
+
+        <div class="about-logo">
+          DE
+        </div>
+
+        <h2>DÉFI EXPERT</h2>
+
+        <p>
+          Un jeu de réflexion et de rapidité conçu pour tester
+          tes réflexes, ton attention et ta capacité à réagir
+          sous pression.
+        </p>
+
+        <div class="creator-box">
+          <span>CRÉATEUR</span>
+          <strong>Créé par Belfort</strong>
+        </div>
+
+        <div class="version">
+          Version 1.0
+        </div>
+
+      </div>
+
+
+      <button
+        class="secondary-btn"
+        data-back="home"
+        type="button"
+      >
+        RETOUR
+      </button>
+
+    </section>
 
 
     <!-- =========================
          JEU
     ========================== -->
+
     <section id="game" class="screen">
 
+      <div class="game-topbar">
 
-      <!-- INFORMATIONS JOUEUR -->
-      <div class="game-head">
-
-        <div>
-
-          <div class="mini-label">
-            JOUEUR
-          </div>
-
-          <strong id="gamePlayer">
-            —
-          </strong>
-
+        <div class="game-player-block">
+          <span>JOUEUR</span>
+          <strong id="gamePlayer">---</strong>
         </div>
-
 
         <button
           id="quitBtn"
-          class="small-btn danger"
+          class="quit-btn"
           type="button"
         >
-          Quitter
+          QUITTER
         </button>
 
       </div>
 
 
-
       <!-- STATISTIQUES -->
+
       <div class="stats">
 
-        <div class="stat">
-
-          <span>
-            Score
-          </span>
-
-          <strong id="score">
-            0
-          </strong>
-
+        <div class="stat-box">
+          <span>SCORE</span>
+          <strong id="score">0</strong>
         </div>
 
-
-        <div class="stat">
-
-          <span>
-            Niveau
-          </span>
-
-          <strong id="level">
-            1
-          </strong>
-
+        <div class="stat-box">
+          <span>NIVEAU</span>
+          <strong id="level">1</strong>
         </div>
 
-
-        <div class="stat">
-
-          <span>
-            Combo
-          </span>
-
-          <strong id="combo">
-            0
-          </strong>
-
-        </div>
-
-
-        <div class="stat">
-
-          <span>
-            Vies
-          </span>
-
-          <strong id="hearts">
-            ❤️❤️❤️
-          </strong>
-
+        <div class="stat-box">
+          <span>COMBO</span>
+          <strong id="combo">0</strong>
         </div>
 
       </div>
 
 
+      <!-- VIES -->
 
-      <!-- CHRONOMÈTRE -->
-      <div class="timer">
+      <div class="lives-row">
 
-        <div id="timerBar"></div>
+        <span>VIES</span>
+
+        <strong id="hearts">
+          ❤️❤️❤️
+        </strong>
 
       </div>
 
 
+      <!-- MODE -->
 
       <div
         id="survivalBanner"
@@ -418,26 +480,36 @@
       </div>
 
 
+      <!-- CHRONOMÈTRE -->
+
+      <div class="timer-container">
+
+        <div
+          id="timerBar"
+          class="timer-bar"
+        ></div>
+
+      </div>
+
 
       <!-- CIBLE -->
-      <div class="target-card">
 
-        <div class="mini-label">
+      <div class="target-section">
+
+        <div class="target-label">
           SYMBOLE CIBLE
         </div>
 
-
         <div
           id="targetSymbol"
-          class="target"
+          class="target-symbol"
         >
           ★
         </div>
 
-
         <div
           id="statusText"
-          class="status"
+          class="status-text"
         >
           Choisis le symbole correspondant.
         </div>
@@ -445,47 +517,48 @@
       </div>
 
 
+      <!-- RÉPONSES -->
 
-      <!-- BOUTONS -->
       <div
         id="board"
-        class="board"
+        class="answer-board"
       ></div>
 
 
       <div
         id="flash"
         class="flash"
+        aria-hidden="true"
       ></div>
 
     </section>
 
 
-
     <!-- =========================
          FIN DE PARTIE
     ========================== -->
-    <section id="gameover" class="screen">
 
+    <section id="gameover" class="screen">
 
       <div class="gameover-card">
 
-        <div class="badge">
+        <div class="gameover-icon">
+          🏆
+        </div>
+
+        <div class="gameover-label">
           PARTIE TERMINÉE
         </div>
 
-
-        <h2 id="finalPlayer">
-          —
+        <h2>
+          Bien joué,
+          <span id="finalPlayer">---</span>
         </h2>
 
 
-        <!-- SCORE -->
-        <div class="final-score">
+        <div class="final-score-box">
 
-          <span>
-            SCORE
-          </span>
+          <span>SCORE</span>
 
           <strong id="finalScore">
             0
@@ -494,118 +567,74 @@
         </div>
 
 
-        <!-- NOUVEAU RECORD -->
+        <div class="final-stats">
+
+          <div>
+            <span>MEILLEUR SCORE</span>
+            <strong id="finalBest">0</strong>
+          </div>
+
+          <div>
+            <span>COMBO</span>
+            <strong id="finalCombo">0</strong>
+          </div>
+
+          <div>
+            <span>NIVEAU</span>
+            <strong id="finalLevel">1</strong>
+          </div>
+
+        </div>
+
+
         <div
           id="newRecord"
-          class="record"
+          class="new-record"
         >
-          NOUVEAU RECORD !
+          ★ NOUVEAU RECORD ★
         </div>
 
 
-
-        <!-- RÉSULTATS -->
-        <div class="final-grid">
-
-          <div>
-
-            <span>
-              Meilleur score
-            </span>
-
-            <strong id="finalBest">
-              0
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Meilleur combo
-            </span>
-
-            <strong id="finalCombo">
-              0
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Niveau atteint
-            </span>
-
-            <strong id="finalLevel">
-              1
-            </strong>
-
-          </div>
-
-        </div>
-
-
-
-        <!-- ACTIONS -->
-        <div class="actions">
+        <div class="gameover-actions">
 
           <button
             id="againBtn"
-            class="primary"
+            class="primary-btn"
             type="button"
           >
             REJOUER
           </button>
 
-
           <button
             id="changePlayerBtn"
-            class="secondary"
+            class="secondary-btn"
             type="button"
           >
             CHANGER DE JOUEUR
           </button>
 
-
           <button
             id="homeBtn"
-            class="ghost"
+            class="text-btn"
             type="button"
           >
-            ACCUEIL
+            RETOUR À L'ACCUEIL
           </button>
 
         </div>
-
-
-
-        <!-- ÉTAT ENREGISTREMENT -->
-        <div
-          id="saveStatus"
-          class="save-status"
-        ></div>
 
       </div>
 
     </section>
 
-
-
-    <!-- =========================
-         PIED DE PAGE
-    ========================== -->
-    <footer>
-      © DÉFI EXPERT · Créé par Belfort
-    </footer>
-
   </main>
 
 
-  <!-- JAVASCRIPT DU JEU -->
-  <script src="game.js"></script>
+  <!-- =========================
+       JAVASCRIPT
+  ========================== -->
+
+  <script src="game.js?v=final-20260929"></script>
 
 </body>
 </html>
