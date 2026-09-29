@@ -1,1771 +1,436 @@
-/* =========================================================
-   DÉFI EXPERT
-   Jeu de réflexes & rapidité
-   Créé par Belfort
-   ========================================================= */
+const SUPABASE_URL = "https://snmmtigmbrrqdcesdzwg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
+const TABLE = "scores";
+const LEADERBOARD_LIMIT = 1000;
 
-"use strict";
+const $ = id => document.getElementById(id);
+const screens = ["home","how","leaderboard","about","game","gameover"];
 
-/* =========================================================
-   SUPABASE
-   ========================================================= */
-
-const SUPABASE_URL =
-    "https://snmmtigmbrrqdcesdzwg.supabase.co";
-
-const SUPABASE_KEY =
-    "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
-
-let supabaseClient = null;
-
-
-/* =========================================================
-   CHARGEMENT SUPABASE
-   ========================================================= */
-
-function loadSupabase() {
-
-    return new Promise((resolve, reject) => {
-
-        if (window.supabase) {
-
-            supabaseClient =
-                window.supabase.createClient(
-                    SUPABASE_URL,
-                    SUPABASE_KEY
-                );
-
-            resolve();
-
-            return;
-        }
-
-
-        const script =
-            document.createElement("script");
-
-        script.src =
-            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-
-        script.onload = () => {
-
-            if (!window.supabase) {
-
-                reject(
-                    new Error(
-                        "Supabase JS n'a pas pu être chargé."
-                    )
-                );
-
-                return;
-            }
-
-
-            supabaseClient =
-                window.supabase.createClient(
-                    SUPABASE_URL,
-                    SUPABASE_KEY
-                );
-
-
-            resolve();
-
-        };
-
-
-        script.onerror = () => {
-
-            reject(
-                new Error(
-                    "Impossible de charger Supabase."
-                )
-            );
-
-        };
-
-
-        document.head.appendChild(script);
-
-    });
-
-}
-
-
-/* =========================================================
-   CONFIGURATION
-   ========================================================= */
-
-const SYMBOLS = [
-    "◆",
-    "●",
-    "▲",
-    "★",
-    "✚",
-    "✦",
-    "⬟",
-    "♥",
-    "☀"
-];
-
-
-const CONFIG = {
-
-    maxLives: 3,
-
-    maxPlayerName: 18,
-
-    leaderboardPageSize: 1000,
-
-    creator: "Créé par Belfort"
-
-};
-
-
-/* =========================================================
-   ÉTAT DU JEU
-   ========================================================= */
-
+const SYMBOLS = ["★","◆","●","▲","■","✚","♥","⚡","☀"];
 const state = {
-
-    score: 0,
-
-    lives: 3,
-
-    combo: 0,
-
-    maxCombo: 0,
-
-    level: 1,
-
-    target: null,
-
-    timer: null,
-
-    deadline: 0,
-
-    best: 0,
-
-    running: false,
-
-    round: 0,
-
-    player: "",
-
-    scoreSaved: false
-
+  playerName: "",
+  playerKey: "",
+  score: 0,
+  best: 0,
+  combo: 0,
+  maxCombo: 0,
+  level: 1,
+  lives: 3,
+  target: "",
+  roundSymbols: [],
+  roundActive: false,
+  roundStarted: 0,
+  roundDuration: 3000,
+  timerId: null,
+  ended: false,
+  saved: false
 };
 
-
-/* =========================================================
-   DOM
-   ========================================================= */
-
-const $ = id =>
-    document.getElementById(id);
-
-
-const screens = [
-    "home",
-    "how",
-    "game",
-    "gameover"
-];
-
-
-function show(id) {
-
-    screens.forEach(screen => {
-
-        const element = $(screen);
-
-        if (element) {
-
-            element.classList.toggle(
-                "active",
-                screen === id
-            );
-
-        }
-
-    });
-
+function normalizeName(name) {
+  return name.trim().replace(/\s+/g, " ").slice(0, 24);
 }
 
+function getPlayerKeyForName(playerName) {
+  const storageKey = "defi_expert_player_keys";
+  const mapKey = normalizeName(playerName).toLowerCase();
+  let players = {};
+  try { players = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch {}
+  if (players[mapKey]) return players[mapKey];
 
-/* =========================================================
-   UTILITAIRES
-   ========================================================= */
+  const key = (crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : "player-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 
-function shuffle(array) {
-
-    for (
-        let i = array.length - 1;
-        i > 0;
-        i--
-    ) {
-
-        const j =
-            Math.floor(
-                Math.random() * (i + 1)
-            );
-
-
-        [
-            array[i],
-            array[j]
-        ] = [
-            array[j],
-            array[i]
-        ];
-
-    }
-
-    return array;
-
+  players[mapKey] = key;
+  try { localStorage.setItem(storageKey, JSON.stringify(players)); } catch {}
+  return key;
 }
 
-
-function escapeHTML(value) {
-
-    return String(value)
-
-        .replaceAll("&", "&amp;")
-
-        .replaceAll("<", "&lt;")
-
-        .replaceAll(">", "&gt;")
-
-        .replaceAll('"', "&quot;")
-
-        .replaceAll("'", "&#039;");
-
+function showScreen(id) {
+  screens.forEach(s => $(s).classList.toggle("active", s === id));
+  window.scrollTo(0, 0);
+  if (id === "leaderboard") loadLeaderboard();
 }
 
+function setError(msg = "") { $("nameError").textContent = msg; }
 
-/* =========================================================
-   PROFIL LOCAL
-   ========================================================= */
-
-function getSavedName() {
-
-    return (
-        localStorage.getItem(
-            "defiExpertPlayer"
-        ) || ""
-    );
-
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
 }
 
-
-function saveName(name) {
-
-    state.player = name;
-
-    localStorage.setItem(
-        "defiExpertPlayer",
-        name
-    );
-
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
-
-function loadProfile() {
-
-    const name =
-        getSavedName();
-
-
-    const input =
-        $("playerName");
-
-
-    if (input) {
-
-        input.value =
-            name;
-
-    }
-
-
-    state.player =
-        name;
-
+function showFlash(type) {
+  const f = $("flash");
+  f.className = "flash " + type;
+  setTimeout(() => f.className = "flash", 260);
 }
-
-
-/* =========================================================
-   DIFFICULTÉ
-   ========================================================= */
-
-function difficulty() {
-
-    return {
-
-        tiles:
-            Math.min(
-                9,
-                5 +
-                Math.floor(
-                    (state.level - 1) / 2
-                )
-            ),
-
-        time:
-            Math.max(
-                700,
-                2300 -
-                (state.level - 1) * 115
-            )
-
-    };
-
-}
-
-
-/* =========================================================
-   DÉMARRER
-   ========================================================= */
-
-async function startGame() {
-
-    const input =
-        $("playerName");
-
-
-    const raw =
-        input
-            ? input.value.trim()
-            : "";
-
-
-    if (!raw) {
-
-        const error =
-            $("nameError");
-
-
-        if (error) {
-
-            error.classList.remove(
-                "hidden"
-            );
-
-        }
-
-
-        input?.focus();
-
-        return;
-
-    }
-
-
-    const name =
-        raw
-            .replace(/\s+/g, " ")
-            .slice(
-                0,
-                CONFIG.maxPlayerName
-            );
-
-
-    if (input) {
-
-        input.value =
-            name;
-
-    }
-
-
-    saveName(name);
-
-
-    state.best =
-        Number(
-            localStorage.getItem(
-                "defiExpertBest_" +
-                name.toLowerCase()
-            ) || 0
-        );
-
-
-    state.score = 0;
-
-    state.lives =
-        CONFIG.maxLives;
-
-    state.combo = 0;
-
-    state.maxCombo = 0;
-
-    state.level = 1;
-
-    state.round = 0;
-
-    state.running = true;
-
-    state.scoreSaved = false;
-
-
-    $("gamePlayer").textContent =
-        name;
-
-
-    $("survivalBanner")
-        ?.classList.add("hidden");
-
-
-    show("game");
-
-    updateHUD();
-
-    nextRound();
-
-}
-
-
-/* =========================================================
-   CRÉER LES CASES
-   ========================================================= */
-
-function makeTiles() {
-
-    const board =
-        $("board");
-
-
-    if (!board) {
-        return;
-    }
-
-
-    board.innerHTML = "";
-
-
-    const d =
-        difficulty();
-
-
-    const choices =
-        shuffle(
-            [...SYMBOLS]
-        ).slice(
-            0,
-            d.tiles
-        );
-
-
-    state.target =
-        choices[
-            Math.floor(
-                Math.random() *
-                choices.length
-            )
-        ];
-
-
-    $("targetSymbol").textContent =
-        state.target;
-
-
-    let symbols =
-        [...choices];
-
-
-    while (
-        symbols.length < 9
-    ) {
-
-        symbols.push(
-            SYMBOLS[
-                Math.floor(
-                    Math.random() *
-                    SYMBOLS.length
-                )
-            ]
-        );
-
-    }
-
-
-    symbols[
-        Math.floor(
-            Math.random() * 9
-        )
-    ] = state.target;
-
-
-    shuffle(symbols)
-        .forEach(symbol => {
-
-            const tile =
-                document.createElement(
-                    "button"
-                );
-
-
-            tile.className =
-                "tile";
-
-
-            tile.textContent =
-                symbol;
-
-
-            tile.setAttribute(
-                "aria-label",
-                "Symbole " + symbol
-            );
-
-
-            tile.addEventListener(
-                "click",
-                () =>
-                    tapTile(
-                        tile,
-                        symbol
-                    ),
-                {
-                    once: true
-                }
-            );
-
-
-            board.appendChild(
-                tile
-            );
-
-        });
-
-}
-
-
-/* =========================================================
-   TOUR SUIVANT
-   ========================================================= */
-
-function nextRound() {
-
-    if (!state.running) {
-        return;
-    }
-
-
-    state.round++;
-
-
-    state.level =
-        Math.min(
-            99,
-            1 +
-            Math.floor(
-                state.round / 6
-            )
-        );
-
-
-    updateHUD();
-
-
-    makeTiles();
-
-
-    startTimer(
-        difficulty().time
-    );
-
-}
-
-
-/* =========================================================
-   CHRONOMÈTRE
-   ========================================================= */
-
-function startTimer(ms) {
-
-    clearTimeout(
-        state.timer
-    );
-
-
-    const start =
-        performance.now();
-
-
-    state.deadline =
-        start + ms;
-
-
-    const bar =
-        $("timerBar");
-
-
-    if (bar) {
-
-        bar.style.transition =
-            "none";
-
-        bar.style.width =
-            "100%";
-
-
-        requestAnimationFrame(() => {
-
-            bar.style.transition =
-                `width ${ms}ms linear`;
-
-            bar.style.width =
-                "0%";
-
-        });
-
-    }
-
-
-    state.timer =
-        setTimeout(
-            () =>
-                miss(
-                    "Temps écoulé !"
-                ),
-            ms
-        );
-
-}
-
-
-/* =========================================================
-   CLIC SUR UNE CASE
-   ========================================================= */
-
-function tapTile(
-    tile,
-    symbol
-) {
-
-    if (
-        !state.running
-    ) {
-
-        return;
-
-    }
-
-
-    clearTimeout(
-        state.timer
-    );
-
-
-    if (
-        symbol ===
-        state.target
-    ) {
-
-        tile.classList.add(
-            "correct"
-        );
-
-
-        state.combo++;
-
-
-        state.maxCombo =
-            Math.max(
-                state.maxCombo,
-                state.combo
-            );
-
-
-        const speedBonus =
-            Math.max(
-                0,
-                Math.round(
-                    (
-                        state.deadline -
-                        performance.now()
-                    ) / 50
-                )
-            );
-
-
-        state.score +=
-            10 +
-            speedBonus +
-            Math.min(
-                10,
-                state.combo - 1
-            ) * 2;
-
-
-        $("statusText").textContent =
-            state.combo >= 5
-                ? "🔥 COMBO EN FEU !"
-                : "✓ BONNE RÉPONSE";
-
-
-        updateHUD();
-
-
-        setTimeout(
-            nextRound,
-            110
-        );
-
-
-    } else {
-
-        tile.classList.add(
-            "wrong"
-        );
-
-
-        miss(
-            "Mauvais symbole !"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   ERREUR
-   ========================================================= */
-
-function miss(message) {
-
-    if (!state.running) {
-        return;
-    }
-
-
-    clearTimeout(
-        state.timer
-    );
-
-
-    state.lives--;
-
-    state.combo = 0;
-
-
-    $("statusText").textContent =
-        message;
-
-
-    $("flash")
-        ?.classList.add("show");
-
-
-    setTimeout(
-        () =>
-            $("flash")
-                ?.classList
-                .remove("show"),
-        220
-    );
-
-
-    updateHUD();
-
-
-    if (
-        state.lives <= 0
-    ) {
-
-        endGame();
-
-        return;
-
-    }
-
-
-    if (
-        state.lives === 1
-    ) {
-
-        $("survivalBanner")
-            ?.classList
-            .remove("hidden");
-
-
-        setTimeout(
-            () =>
-                $("survivalBanner")
-                    ?.classList
-                    .add("hidden"),
-            900
-        );
-
-    }
-
-
-    setTimeout(
-        nextRound,
-        350
-    );
-
-}
-
-
-/* =========================================================
-   HUD
-   ========================================================= */
 
 function updateHUD() {
-
-    if ($("score")) {
-
-        $("score").textContent =
-            state.score.toLocaleString(
-                "fr-FR"
-            );
-
-    }
-
-
-    if ($("level")) {
-
-        $("level").textContent =
-            state.level;
-
-    }
-
-
-    if ($("combo")) {
-
-        $("combo").textContent =
-            state.combo;
-
-    }
-
-
-    if ($("hearts")) {
-
-        $("hearts").textContent =
-            "❤️".repeat(
-                state.lives
-            ) +
-            "🖤".repeat(
-                CONFIG.maxLives -
-                state.lives
-            );
-
-    }
-
+  $("score").textContent = state.score;
+  $("level").textContent = state.level;
+  $("combo").textContent = state.combo;
+  $("hearts").textContent = "❤️".repeat(state.lives) + "🖤".repeat(3 - state.lives);
 }
 
+function roundDuration() {
+  return Math.max(950, 3000 - (state.level - 1) * 170);
+}
 
-/* =========================================================
-   FIN DE PARTIE
-   ========================================================= */
+function createRound() {
+  if (state.ended) return;
+
+  state.roundActive = true;
+  state.target = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+  const decoys = shuffle(SYMBOLS.filter(s => s !== state.target)).slice(0, 8);
+  state.roundSymbols = shuffle([state.target, ...decoys.slice(0, 5)]);
+
+  $("targetSymbol").textContent = state.target;
+  $("statusText").textContent = "Choisis le symbole correspondant.";
+  const board = $("board");
+  board.innerHTML = "";
+
+  state.roundSymbols.forEach(symbol => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.type = "button";
+    btn.textContent = symbol;
+    btn.setAttribute("aria-label", "Choisir " + symbol);
+    btn.addEventListener("click", () => answer(symbol));
+    board.appendChild(btn);
+  });
+
+  state.roundStarted = performance.now();
+  state.roundDuration = roundDuration();
+  clearInterval(state.timerId);
+  state.timerId = setInterval(updateTimer, 40);
+  updateTimer();
+}
+
+function updateTimer() {
+  if (!state.roundActive || state.ended) return;
+  const elapsed = performance.now() - state.roundStarted;
+  const left = Math.max(0, state.roundDuration - elapsed);
+  $("timerBar").style.width = (left / state.roundDuration * 100) + "%";
+  if (left <= 0) {
+    clearInterval(state.timerId);
+    timeoutRound();
+  }
+}
+
+function disableChoices() {
+  document.querySelectorAll(".choice").forEach(b => b.disabled = true);
+}
+
+function answer(symbol) {
+  if (!state.roundActive || state.ended) return;
+  state.roundActive = false;
+  clearInterval(state.timerId);
+  disableChoices();
+
+  if (symbol === state.target) {
+    state.combo++;
+    state.maxCombo = Math.max(state.maxCombo, state.combo);
+    const bonus = Math.min(250, state.combo * 10);
+    state.score += 100 + bonus + state.level * 10;
+    state.level = Math.floor(state.score / 1000) + 1;
+    $("statusText").textContent = "✓ Bonne réponse !";
+    showFlash("good");
+  } else {
+    loseLife();
+    $("statusText").textContent = "✕ Mauvaise réponse.";
+    showFlash("bad");
+  }
+
+  updateHUD();
+  setTimeout(() => {
+    if (!state.ended) createRound();
+  }, 240);
+}
+
+function timeoutRound() {
+  if (!state.roundActive || state.ended) return;
+  state.roundActive = false;
+  disableChoices();
+  state.combo = 0;
+  loseLife();
+  $("statusText").textContent = "⌛ Temps écoulé.";
+  showFlash("bad");
+  updateHUD();
+  setTimeout(() => {
+    if (!state.ended) createRound();
+  }, 300);
+}
+
+function loseLife() {
+  state.lives--;
+  state.combo = 0;
+  updateHUD();
+  if (state.lives <= 0) endGame();
+}
+
+function startGame() {
+  const name = normalizeName($("playerName").value);
+  if (!name) {
+    setError("Entre ton prénom ou ton pseudo.");
+    $("playerName").focus();
+    return;
+  }
+
+  setError("");
+  state.playerName = name;
+  state.playerKey = getPlayerKeyForName(name);
+  state.score = 0;
+  state.best = Number(localStorage.getItem("defi_expert_best_" + name.toLowerCase()) || 0);
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.level = 1;
+  state.lives = 3;
+  state.ended = false;
+  state.saved = false;
+
+  $("gamePlayer").textContent = state.playerName;
+  $("survivalBanner").textContent = "MODE SURVIE";
+  updateHUD();
+  showScreen("game");
+  createRound();
+}
 
 async function endGame() {
+  if (state.ended) return;
+  state.ended = true;
+  state.roundActive = false;
+  clearInterval(state.timerId);
+  disableChoices();
 
-    if (!state.running) {
-        return;
-    }
+  const previousBest = state.best;
+  const isRecord = state.score > previousBest;
+  state.best = Math.max(previousBest, state.score);
 
+  try {
+    localStorage.setItem("defi_expert_best_" + state.playerName.toLowerCase(), String(state.best));
+  } catch {}
 
-    state.running =
-        false;
+  $("finalPlayer").textContent = state.playerName;
+  $("finalScore").textContent = state.score;
+  $("finalBest").textContent = state.best;
+  $("finalCombo").textContent = state.maxCombo;
+  $("finalLevel").textContent = state.level;
+  $("newRecord").classList.toggle("show", isRecord);
+  $("saveStatus").textContent = "Enregistrement du score…";
+  showScreen("gameover");
 
-
-    clearTimeout(
-        state.timer
-    );
-
-
-    const key =
-        "defiExpertBest_" +
-        state.player.toLowerCase();
-
-
-    state.best =
-        Number(
-            localStorage.getItem(
-                key
-            ) || 0
-        );
-
-
-    const isNew =
-        state.score >
-        state.best;
-
-
-    if (isNew) {
-
-        state.best =
-            state.score;
-
-
-        localStorage.setItem(
-            key,
-            state.best
-        );
-
-    }
-
-
-    $("finalPlayer").textContent =
-        state.player;
-
-
-    $("finalScore").textContent =
-        state.score.toLocaleString(
-            "fr-FR"
-        );
-
-
-    $("finalBest").textContent =
-        state.best.toLocaleString(
-            "fr-FR"
-        );
-
-
-    $("finalCombo").textContent =
-        state.maxCombo;
-
-
-    $("finalLevel").textContent =
-        state.level;
-
-
-    $("newRecord")
-        ?.classList
-        .toggle(
-            "hidden",
-            !isNew
-        );
-
-
-    show("gameover");
-
-
-    /* ENREGISTREMENT GLOBAL */
-    await saveGlobalScore();
-
-
-    /* ACTUALISATION DU CLASSEMENT */
-    await loadLeaderboard();
-
+  const result = await saveScore();
+  $("saveStatus").textContent = result.ok
+    ? "✓ Score enregistré dans le classement."
+    : "⚠️ Score local conservé. Vérifie la connexion.";
 }
 
-
-/* =========================================================
-   ENREGISTRER LE SCORE DANS SUPABASE
-   ========================================================= */
-
-async function saveGlobalScore() {
-
-    if (
-        state.scoreSaved ||
-        !supabaseClient ||
-        !state.player
-    ) {
-
-        return;
-
-    }
-
-
-    state.scoreSaved =
-        true;
-
-
-    const payload = {
-
-        player_name:
-            state.player,
-
-        score:
-            Math.max(
-                0,
-                Math.floor(
-                    state.score
-                )
-            ),
-
-        max_combo:
-            Math.max(
-                0,
-                Math.floor(
-                    state.maxCombo
-                )
-            ),
-
-        level:
-            Math.max(
-                1,
-                Math.floor(
-                    state.level
-                )
-            )
-
-    };
-
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from(
-                "defi_expert_scores"
-            )
-            .insert(
-                payload
-            );
-
-
-    if (error) {
-
-        console.error(
-            "Erreur classement Supabase :",
-            error
-        );
-
-
-        state.scoreSaved =
-            false;
-
-    }
-
+function authHeaders() {
+  return {
+    "apikey": SUPABASE_KEY,
+    "Authorization": "Bearer " + SUPABASE_KEY,
+    "Content-Type": "application/json"
+  };
 }
 
+async function saveScore() {
+  try {
+    const searchUrl =
+      `${SUPABASE_URL}/rest/v1/${TABLE}` +
+      `?select=id,player_name,player_key,score,max_combo,level` +
+      `&player_key=eq.${encodeURIComponent(state.playerKey)}&limit=1`;
 
-/* =========================================================
-   CRÉER L'INTERFACE CLASSEMENT
-   ========================================================= */
+    const searchRes = await fetch(searchUrl, {
+      headers: authHeaders(),
+      cache: "no-store"
+    });
 
-function createLeaderboardUI() {
-
-    if (
-        $("leaderboardOverlay")
-    ) {
-
-        return;
-
+    if (!searchRes.ok) {
+      console.error("ERREUR RECHERCHE JOUEUR", searchRes.status, await searchRes.text());
+      return { ok: false };
     }
 
-
-    const howButton =
-        $("howBtn");
-
-
-    if (!howButton) {
-        return;
-    }
-
-
-    const leaderboardButton =
-        document.createElement(
-            "button"
-        );
-
-
-    leaderboardButton.id =
-        "leaderboardBtn";
-
-
-    leaderboardButton.className =
-        "text-btn";
-
-
-    leaderboardButton.textContent =
-        "🏆 Classement mondial";
-
-
-    leaderboardButton.addEventListener(
-        "click",
-        openLeaderboard
-    );
-
-
-    howButton.insertAdjacentElement(
-        "afterend",
-        leaderboardButton
-    );
-
-
-    const overlay =
-        document.createElement(
-            "div"
-        );
-
-
-    overlay.id =
-        "leaderboardOverlay";
-
-
-    overlay.style.cssText = `
-        position:fixed;
-        inset:0;
-        z-index:9999;
-        display:none;
-        background:rgba(5,8,18,.94);
-        padding:20px;
-        overflow:auto;
-    `;
-
-
-    overlay.innerHTML = `
-
-        <div style="
-            max-width:700px;
-            margin:20px auto;
-            background:#101522;
-            border:1px solid rgba(255,255,255,.12);
-            border-radius:22px;
-            padding:22px;
-            color:white;
-            box-shadow:0 20px 60px rgba(0,0,0,.4);
-        ">
-
-            <div style="
-                display:flex;
-                align-items:center;
-                justify-content:space-between;
-                gap:12px;
-                margin-bottom:18px;
-            ">
-
-                <div>
-                    <div style="
-                        font-size:12px;
-                        opacity:.65;
-                        letter-spacing:1px;
-                    ">
-                        DÉFI EXPERT
-                    </div>
-
-                    <h2 style="
-                        margin:4px 0 0;
-                        font-size:28px;
-                    ">
-                        🏆 Classement mondial
-                    </h2>
-                </div>
-
-                <button
-                    id="closeLeaderboard"
-                    style="
-                        width:42px;
-                        height:42px;
-                        border:0;
-                        border-radius:50%;
-                        font-size:24px;
-                        cursor:pointer;
-                    "
-                >
-                    ×
-                </button>
-
-            </div>
-
-
-            <div
-                id="leaderboardStatus"
-                style="
-                    text-align:center;
-                    padding:20px;
-                    opacity:.7;
-                "
-            >
-                Chargement du classement...
-            </div>
-
-
-            <div
-                id="leaderboardList"
-                style="
-                    display:flex;
-                    flex-direction:column;
-                    gap:8px;
-                "
-            ></div>
-
-        </div>
-
-    `;
-
-
-    document.body.appendChild(
-        overlay
-    );
-
-
-    $("closeLeaderboard")
-        .addEventListener(
-            "click",
-            closeLeaderboard
-        );
-
-
-    overlay.addEventListener(
-        "click",
-        event => {
-
-            if (
-                event.target ===
-                overlay
-            ) {
-
-                closeLeaderboard();
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   OUVRIR CLASSEMENT
-   ========================================================= */
-
-async function openLeaderboard() {
-
-    const overlay =
-        $("leaderboardOverlay");
-
-
-    if (!overlay) {
-        return;
-    }
-
-
-    overlay.style.display =
-        "block";
-
-
-    await loadLeaderboard();
-
-}
-
-
-/* =========================================================
-   FERMER CLASSEMENT
-   ========================================================= */
-
-function closeLeaderboard() {
-
-    const overlay =
-        $("leaderboardOverlay");
-
-
-    if (overlay) {
-
-        overlay.style.display =
-            "none";
-
-    }
-
-}
-
-
-/* =========================================================
-   CHARGER TOUS LES SCORES
-   ========================================================= */
-
-async function loadLeaderboard() {
-
-    const list =
-        $("leaderboardList");
-
-
-    const status =
-        $("leaderboardStatus");
-
-
-    if (!list) {
-        return;
-    }
-
-
-    list.innerHTML = "";
-
-
-    if (status) {
-
-        status.textContent =
-            "Chargement du classement...";
-
-    }
-
-
-    if (!supabaseClient) {
-
-        if (status) {
-
-            status.textContent =
-                "Connexion au classement indisponible.";
-
-        }
-
-        return;
-
-    }
-
-
-    try {
-
-        let allScores = [];
-
-        let from = 0;
-
-        const pageSize =
-            CONFIG.leaderboardPageSize;
-
-
-        while (true) {
-
-            const to =
-                from +
-                pageSize -
-                1;
-
-
-            const {
-                data,
-                error
-            } =
-                await supabaseClient
-
-                    .from(
-                        "defi_expert_scores"
-                    )
-
-                    .select(
-                        "id,player_name,score,max_combo,level,created_at"
-                    )
-
-                    .order(
-                        "score",
-                        {
-                            ascending:
-                                false
-                        }
-                    )
-
-                    .order(
-                        "created_at",
-                        {
-                            ascending:
-                                true
-                        }
-                    )
-
-                    .range(
-                        from,
-                        to
-                    );
-
-
-            if (error) {
-                throw error;
-            }
-
-
-            if (
-                !data ||
-                data.length === 0
-            ) {
-
-                break;
-
-            }
-
-
-            allScores =
-                allScores.concat(
-                    data
-                );
-
-
-            if (
-                data.length <
-                pageSize
-            ) {
-
-                break;
-
-            }
-
-
-            from +=
-                pageSize;
-
-        }
-
-
-        renderLeaderboard(
-            allScores
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Erreur chargement classement :",
-            error
-        );
-
-
-        if (status) {
-
-            status.textContent =
-                "Impossible de charger le classement.";
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   AFFICHER LE CLASSEMENT
-   ========================================================= */
-
-function renderLeaderboard(
-    scores
-) {
-
-    const list =
-        $("leaderboardList");
-
-
-    const status =
-        $("leaderboardStatus");
-
-
-    if (!list) {
-        return;
-    }
-
-
-    list.innerHTML = "";
-
-
-    if (
-        !scores ||
-        scores.length === 0
-    ) {
-
-        if (status) {
-
-            status.textContent =
-                "Aucun joueur n'a encore enregistré de score.";
-
-        }
-
-        return;
-
-    }
-
-
-    if (status) {
-
-        status.textContent =
-            `${scores.length} score${scores.length > 1 ? "s" : ""} enregistré${scores.length > 1 ? "s" : ""}`;
-
-    }
-
-
-    scores.forEach(
-        (entry, index) => {
-
-            const row =
-                document.createElement(
-                    "div"
-                );
-
-
-            const position =
-                index + 1;
-
-
-            const medal =
-                position === 1
-                    ? "🥇"
-                    : position === 2
-                        ? "🥈"
-                        : position === 3
-                            ? "🥉"
-                            : `#${position}`;
-
-
-            row.style.cssText = `
-                display:grid;
-                grid-template-columns:55px 1fr auto;
-                align-items:center;
-                gap:10px;
-                padding:13px 14px;
-                border-radius:14px;
-                background:rgba(255,255,255,.06);
-            `;
-
-
-            row.innerHTML = `
-
-                <strong style="
-                    font-size:16px;
-                    text-align:center;
-                ">
-                    ${medal}
-                </strong>
-
-                <div>
-
-                    <strong style="
-                        display:block;
-                        font-size:16px;
-                    ">
-                        ${escapeHTML(
-                            entry.player_name
-                        )}
-                    </strong>
-
-                    <small style="
-                        opacity:.55;
-                    ">
-                        Niveau ${entry.level}
-                        · Combo ${entry.max_combo}
-                    </small>
-
-                </div>
-
-                <strong style="
-                    font-size:17px;
-                ">
-                    ${Number(
-                        entry.score
-                    ).toLocaleString(
-                        "fr-FR"
-                    )} pts
-                </strong>
-
-            `;
-
-
-            list.appendChild(
-                row
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   ÉVÉNEMENTS
-   ========================================================= */
-
-function setupEvents() {
-
-    $("clearName")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                $("playerName").value =
-                    "";
-
-                localStorage.removeItem(
-                    "defiExpertPlayer"
-                );
-
-                $("playerName").focus();
-
-            }
-        );
-
-
-    $("playerName")
-        ?.addEventListener(
-            "input",
-            () => {
-
-                $("nameError")
-                    ?.classList
-                    .add("hidden");
-
-            }
-        );
-
-
-    $("playerName")
-        ?.addEventListener(
-            "keydown",
-            event => {
-
-                if (
-                    event.key ===
-                    "Enter"
-                ) {
-
-                    startGame();
-
-                }
-
-            }
-        );
-
-
-    $("startBtn")
-        ?.addEventListener(
-            "click",
-            startGame
-        );
-
-
-    $("againBtn")
-        ?.addEventListener(
-            "click",
-            startGame
-        );
-
-
-    $("changePlayerBtn")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                show("home");
-
-                $("playerName")
-                    ?.focus();
-
-                $("playerName")
-                    ?.select();
-
-            }
-        );
-
-
-    $("homeBtn")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                state.running =
-                    false;
-
-                clearTimeout(
-                    state.timer
-                );
-
-                show("home");
-
-            }
-        );
-
-
-    $("howBtn")
-        ?.addEventListener(
-            "click",
-            () =>
-                show("how")
-        );
-
-
-    document
-        .querySelectorAll(
-            "[data-back]"
-        )
-        .forEach(button => {
-
-            button.addEventListener(
-                "click",
-                () =>
-                    show("home")
-            );
-
+    const rows = await searchRes.json();
+
+    if (rows.length) {
+      const row = rows[0];
+
+      if (Number(state.score) > Number(row.score || 0)) {
+        const updateUrl = `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(row.id)}`;
+        const updateRes = await fetch(updateUrl, {
+          method: "PATCH",
+          headers: { ...authHeaders(), "Prefer": "return=minimal" },
+          body: JSON.stringify({
+            player_name: state.playerName,
+            score: state.score,
+            max_combo: state.maxCombo,
+            level: state.level,
+            updated_at: new Date().toISOString()
+          })
         });
 
-
-    $("quitBtn")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                state.running =
-                    false;
-
-                clearTimeout(
-                    state.timer
-                );
-
-                show("home");
-
-            }
-        );
-
-}
-
-
-/* =========================================================
-   INITIALISATION
-   ========================================================= */
-
-async function initialize() {
-
-    loadProfile();
-
-    setupEvents();
-
-    createLeaderboardUI();
-
-
-    try {
-
-        await loadSupabase();
-
-        console.log(
-            "DÉFI EXPERT : Supabase connecté."
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "DÉFI EXPERT : Supabase indisponible.",
-            error
-        );
-
+        if (!updateRes.ok) {
+          console.error("ERREUR MISE À JOUR SCORE", updateRes.status, await updateRes.text());
+          return { ok: false };
+        }
+      }
+      return { ok: true };
     }
 
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Prefer": "return=minimal" },
+      body: JSON.stringify({
+        player_name: state.playerName,
+        player_key: state.playerKey,
+        score: state.score,
+        max_combo: state.maxCombo,
+        level: state.level,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    });
+
+    if (!insertRes.ok) {
+      console.error("ERREUR INSERTION SCORE", insertRes.status, await insertRes.text());
+      return { ok: false };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error("ERREUR SUPABASE", error);
+    return { ok: false };
+  }
 }
 
+function localFallback() {
+  try {
+    return JSON.parse(localStorage.getItem("defi_expert_leaderboard") || "[]");
+  } catch {
+    return [];
+  }
+}
 
-/* =========================================================
-   LANCEMENT
-   ========================================================= */
+function saveLocalFallback() {
+  const list = localFallback();
+  const existing = list.findIndex(x => x.player_key === state.playerKey);
+  const entry = {
+    player_name: state.playerName,
+    player_key: state.playerKey,
+    score: state.score,
+    max_combo: state.maxCombo,
+    level: state.level
+  };
 
-initialize();
+  if (existing >= 0) {
+    if (state.score > Number(list[existing].score || 0)) list[existing] = entry;
+  } else {
+    list.push(entry);
+  }
 
+  list.sort((a,b) => Number(b.score || 0) - Number(a.score || 0));
+  try { localStorage.setItem("defi_expert_leaderboard", JSON.stringify(list.slice(0, 1000))); } catch {}
+}
 
-/* =========================================================
-   API PUBLIQUE
-   ========================================================= */
+async function loadLeaderboard() {
+  const box = $("leaderboardList");
+  box.innerHTML = '<div class="loading">Chargement du classement…</div>';
 
-window.DefiExpert = {
+  try {
+    const url =
+      `${SUPABASE_URL}/rest/v1/${TABLE}` +
+      `?select=id,player_name,player_key,score,max_combo,level,created_at` +
+      `&order=score.desc&limit=${LEADERBOARD_LIMIT}`;
 
-    startGame,
+    const res = await fetch(url, {
+      headers: authHeaders(),
+      cache: "no-store"
+    });
 
-    openLeaderboard,
+    if (!res.ok) {
+      console.error("ERREUR CLASSEMENT", res.status, await res.text());
+      throw new Error("Classement indisponible");
+    }
 
-    closeLeaderboard,
+    const rows = await res.json();
+    renderLeaderboard(rows);
+  } catch (error) {
+    console.error(error);
+    const rows = localFallback();
+    if (rows.length) {
+      renderLeaderboard(rows);
+      $("myRank").textContent = "Mode local temporaire.";
+    } else {
+      box.innerHTML = '<div class="empty">Impossible de charger le classement.</div>';
+    }
+  }
+}
 
-    loadLeaderboard,
+function renderLeaderboard(rows) {
+  const box = $("leaderboardList");
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">Aucun joueur pour le moment. Sois le premier !</div>';
+    $("myRank").textContent = "";
+    return;
+  }
 
-    getState:
-        () => ({
-            ...state
-        })
+  box.innerHTML = rows.map((row, index) => {
+    const mine = state.playerKey && row.player_key === state.playerKey;
+    const rank = index + 1;
+    const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
+    return `
+      <div class="rank-row ${mine ? "mine" : ""}">
+        <div class="rank ${rank <= 3 ? "top" : ""}">${medal}</div>
+        <div class="player">
+          <strong>${escapeHtml(row.player_name || "Joueur")}</strong>
+          <small>Niveau ${Number(row.level || 1)} · Combo ${Number(row.max_combo || 0)}</small>
+        </div>
+        <div class="points">${Number(row.score || 0)}</div>
+      </div>`;
+  }).join("");
 
-};
+  const mineIndex = rows.findIndex(row => state.playerKey && row.player_key === state.playerKey);
+  $("myRank").textContent = mineIndex >= 0
+    ? `Ta position : #${mineIndex + 1}`
+    : "Joue une partie pour apparaître dans le classement.";
+}
+
+$("startBtn").addEventListener("click", startGame);
+$("playerName").addEventListener("keydown", e => {
+  if (e.key === "Enter") startGame();
+});
+$("clearName").addEventListener("click", () => {
+  $("playerName").value = "";
+  setError("");
+  $("playerName").focus();
+});
+$("leaderboardBtn").addEventListener("click", () => showScreen("leaderboard"));
+$("howBtn").addEventListener("click", () => showScreen("how"));
+$("aboutBtn").addEventListener("click", () => showScreen("about"));
+$("refreshLeaderboard").addEventListener("click", loadLeaderboard);
+document.querySelectorAll("[data-back]").forEach(btn => {
+  btn.addEventListener("click", () => showScreen(btn.dataset.back));
+});
+$("againBtn").addEventListener("click", startGame);
+$("changePlayerBtn").addEventListener("click", () => {
+  showScreen("home");
+  $("playerName").focus();
+});
+$("homeBtn").addEventListener("click", () => showScreen("home"));
+$("quitBtn").addEventListener("click", () => {
+  clearInterval(state.timerId);
+  state.ended = true;
+  showScreen("home");
+});
+
+$("playerName").value = "";
