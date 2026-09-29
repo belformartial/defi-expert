@@ -13,8 +13,8 @@
 // NE METS JAMAIS une clé sb_secret_... ou service_role ici.
 // ============================================================
 
-const SUPABASE_URL = "";
-const SUPABASE_KEY = "";
+const SUPABASE_URL = "https://snmmtigmbrrqdcesdzwg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
 
 
 // ============================================================
