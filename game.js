@@ -2,16 +2,6 @@
 // DÉFI EXPERT
 // Créé par Belfort
 // ============================================================
-//
-// IMPORTANT :
-// Mets ici ton URL Supabase et ta clé publishable/anon.
-//
-// Exemple :
-// const SUPABASE_URL = "https://xxxxxxxx.supabase.co";
-// const SUPABASE_KEY = "sb_publishable_xxxxx";
-//
-// NE METS JAMAIS une clé sb_secret_... ou service_role ici.
-// ============================================================
 
 const SUPABASE_URL = "https://snmmtigmbrrqdcesdzwg.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
@@ -64,6 +54,7 @@ const screens = [
   "gameover"
 ];
 
+
 function show(id) {
 
   screens.forEach((screen) => {
@@ -71,17 +62,22 @@ function show(id) {
     const element = $(screen);
 
     if (element) {
+
       element.classList.toggle(
         "active",
         screen === id
       );
+
     }
 
   });
 
   if (id === "leaderboard") {
+
     loadLeaderboard();
+
   }
+
 }
 
 
@@ -94,7 +90,9 @@ function shuffle(array) {
   ) {
 
     const j =
-      Math.floor(Math.random() * (i + 1));
+      Math.floor(
+        Math.random() * (i + 1)
+      );
 
     [
       array[i],
@@ -103,9 +101,11 @@ function shuffle(array) {
       array[j],
       array[i]
     ];
+
   }
 
   return array;
+
 }
 
 
@@ -138,13 +138,17 @@ function saveName(name) {
 
 function loadProfile() {
 
-  const name = getSavedName();
+  const name =
+    getSavedName();
 
-  $("playerName").value = name;
+  $("playerName").value =
+    name;
 
-  state.player = name;
+  state.player =
+    name;
 
 }
+
 
 loadProfile();
 
@@ -153,7 +157,8 @@ $("clearName").addEventListener(
   "click",
   () => {
 
-    $("playerName").value = "";
+    $("playerName").value =
+      "";
 
     localStorage.removeItem(
       "defiExpertPlayer"
@@ -169,9 +174,9 @@ $("playerName").addEventListener(
   "input",
   () => {
 
-    $("nameError").classList.add(
-      "hidden"
-    );
+    $("nameError")
+      .classList
+      .add("hidden");
 
   }
 );
@@ -185,18 +190,21 @@ function difficulty() {
 
   return {
 
-    tiles: Math.min(
-      9,
-      5 + Math.floor(
-        (state.level - 1) / 2
-      )
-    ),
+    tiles:
+      Math.min(
+        9,
+        5 +
+        Math.floor(
+          (state.level - 1) / 2
+        )
+      ),
 
-    time: Math.max(
-      700,
-      2300 -
-      (state.level - 1) * 115
-    )
+    time:
+      Math.max(
+        700,
+        2300 -
+        (state.level - 1) * 115
+      )
 
   };
 
@@ -210,13 +218,15 @@ function difficulty() {
 function startGame() {
 
   const raw =
-    $("playerName").value.trim();
+    $("playerName")
+      .value
+      .trim();
 
   if (!raw) {
 
-    $("nameError").classList.remove(
-      "hidden"
-    );
+    $("nameError")
+      .classList
+      .remove("hidden");
 
     $("playerName").focus();
 
@@ -229,7 +239,8 @@ function startGame() {
       .replace(/\s+/g, " ")
       .slice(0, 18);
 
-  $("playerName").value = name;
+  $("playerName").value =
+    name;
 
   saveName(name);
 
@@ -253,7 +264,8 @@ function startGame() {
     name;
 
   $("survivalBanner")
-    .classList.add("hidden");
+    .classList
+    .add("hidden");
 
   show("game");
 
@@ -270,11 +282,14 @@ function startGame() {
 
 function makeTiles() {
 
-  const board = $("board");
+  const board =
+    $("board");
 
-  board.innerHTML = "";
+  board.innerHTML =
+    "";
 
-  const d = difficulty();
+  const d =
+    difficulty();
 
   const choices =
     shuffle([...SYMBOLS])
@@ -288,12 +303,16 @@ function makeTiles() {
       )
     ];
 
-  $("targetSymbol").textContent =
+  $("targetSymbol")
+    .textContent =
     state.target;
 
-  let symbols = [...choices];
+  let symbols =
+    [...choices];
 
-  while (symbols.length < 9) {
+  while (
+    symbols.length < 9
+  ) {
 
     symbols.push(
       SYMBOLS[
@@ -310,40 +329,47 @@ function makeTiles() {
     Math.floor(
       Math.random() * 9
     )
-  ] = state.target;
+  ] =
+    state.target;
 
-  shuffle(symbols).forEach(
-    (symbol) => {
+  shuffle(symbols)
+    .forEach(
+      (symbol) => {
 
-      const tile =
-        document.createElement(
-          "button"
+        const tile =
+          document.createElement(
+            "button"
+          );
+
+        tile.className =
+          "tile";
+
+        tile.textContent =
+          symbol;
+
+        tile.setAttribute(
+          "aria-label",
+          "Symbole " + symbol
         );
 
-      tile.className =
-        "tile";
+        tile.addEventListener(
+          "click",
+          () =>
+            tapTile(
+              tile,
+              symbol
+            ),
+          {
+            once: true
+          }
+        );
 
-      tile.textContent =
-        symbol;
+        board.appendChild(
+          tile
+        );
 
-      tile.setAttribute(
-        "aria-label",
-        "Symbole " + symbol
-      );
-
-      tile.addEventListener(
-        "click",
-        () => tapTile(
-          tile,
-          symbol
-        ),
-        { once: true }
-      );
-
-      board.appendChild(tile);
-
-    }
-  );
+      }
+    );
 
 }
 
@@ -355,7 +381,9 @@ function makeTiles() {
 function nextRound() {
 
   if (!state.running) {
+
     return;
+
   }
 
   state.round++;
@@ -363,7 +391,8 @@ function nextRound() {
   state.level =
     Math.min(
       99,
-      1 + Math.floor(
+      1 +
+      Math.floor(
         state.round / 6
       )
     );
@@ -385,7 +414,9 @@ function nextRound() {
 
 function startTimer(ms) {
 
-  clearTimeout(state.timer);
+  clearTimeout(
+    state.timer
+  );
 
   const start =
     performance.now();
@@ -416,9 +447,10 @@ function startTimer(ms) {
 
   state.timer =
     setTimeout(
-      () => miss(
-        "Temps écoulé !"
-      ),
+      () =>
+        miss(
+          "Temps écoulé !"
+        ),
       ms
     );
 
@@ -435,7 +467,9 @@ function tapTile(
 ) {
 
   if (!state.running) {
+
     return;
+
   }
 
   clearTimeout(
@@ -443,7 +477,8 @@ function tapTile(
   );
 
   if (
-    symbol === state.target
+    symbol ===
+    state.target
   ) {
 
     tile.classList.add(
@@ -512,7 +547,9 @@ function tapTile(
 function miss(message) {
 
   if (!state.running) {
+
     return;
+
   }
 
   clearTimeout(
@@ -528,19 +565,25 @@ function miss(message) {
     message;
 
   $("flash")
-    .classList.add("show");
+    .classList
+    .add("show");
 
   setTimeout(
     () => {
+
       $("flash")
-        .classList.remove("show");
+        .classList
+        .remove("show");
+
     },
     220
   );
 
   updateHUD();
 
-  if (state.lives <= 0) {
+  if (
+    state.lives <= 0
+  ) {
 
     endGame();
 
@@ -548,20 +591,20 @@ function miss(message) {
 
   }
 
-  if (state.lives === 1) {
+  if (
+    state.lives === 1
+  ) {
 
     $("survivalBanner")
-      .classList.remove(
-        "hidden"
-      );
+      .classList
+      .remove("hidden");
 
     setTimeout(
       () => {
 
         $("survivalBanner")
-          .classList.add(
-            "hidden"
-          );
+          .classList
+          .add("hidden");
 
       },
       900
@@ -662,26 +705,173 @@ async function saveScoreToSupabase() {
 
   try {
 
-    const url =
+    const playerName =
+      state.player.trim();
+
+    if (!playerName) {
+
+      return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // CHERCHER LE JOUEUR
+    // --------------------------------------------------------
+
+    const searchUrl =
       SUPABASE_URL +
       "/rest/v1/scores" +
-      "?on_conflict=player_name";
+      "?select=id,player_name,score,max_combo,level,updated_at" +
+      "&player_name=eq." +
+      encodeURIComponent(
+        playerName
+      ) +
+      "&limit=1";
 
-    const response =
+    const searchResponse =
       await fetch(
-        url,
+        searchUrl,
+        {
+          method: "GET",
+          headers:
+            supabaseHeaders()
+        }
+      );
+
+    if (!searchResponse.ok) {
+
+      const errorText =
+        await searchResponse.text();
+
+      throw new Error(
+        "Recherche du joueur impossible : " +
+        errorText
+      );
+
+    }
+
+    const existingRows =
+      await searchResponse.json();
+
+
+    // --------------------------------------------------------
+    // JOUEUR EXISTANT
+    // --------------------------------------------------------
+
+    if (
+      existingRows.length > 0
+    ) {
+
+      const existing =
+        existingRows[0];
+
+      if (
+        Number(existing.score || 0) >=
+        Number(state.score)
+      ) {
+
+        console.log(
+          "Score non sauvegardé : le joueur possède déjà un meilleur score."
+        );
+
+        return;
+
+      }
+
+      const updateUrl =
+        SUPABASE_URL +
+        "/rest/v1/scores" +
+        "?id=eq." +
+        encodeURIComponent(
+          existing.id
+        );
+
+      const updateResponse =
+        await fetch(
+          updateUrl,
+          {
+
+            method: "PATCH",
+
+            headers: {
+              ...supabaseHeaders(),
+
+              "Prefer":
+                "return=representation"
+            },
+
+            body:
+              JSON.stringify({
+
+                player_name:
+                  playerName,
+
+                score:
+                  state.score,
+
+                max_combo:
+                  state.maxCombo,
+
+                level:
+                  state.level,
+
+                updated_at:
+                  new Date().toISOString()
+
+              })
+
+          }
+        );
+
+      if (!updateResponse.ok) {
+
+        const errorText =
+          await updateResponse.text();
+
+        throw new Error(
+          "Mise à jour impossible : " +
+          errorText
+        );
+
+      }
+
+      console.log(
+        "Nouveau meilleur score enregistré dans Supabase."
+      );
+
+      return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // NOUVEAU JOUEUR
+    // --------------------------------------------------------
+
+    const insertUrl =
+      SUPABASE_URL +
+      "/rest/v1/scores";
+
+    const insertResponse =
+      await fetch(
+        insertUrl,
         {
 
           method: "POST",
 
-          headers:
-            supabaseHeaders(),
+          headers: {
+            ...supabaseHeaders(),
+
+            "Prefer":
+              "return=representation"
+          },
 
           body:
             JSON.stringify({
 
               player_name:
-                state.player,
+                playerName,
 
               score:
                 state.score,
@@ -690,35 +880,36 @@ async function saveScoreToSupabase() {
                 state.maxCombo,
 
               level:
-                state.level
+                state.level,
+
+              updated_at:
+                new Date().toISOString()
 
             })
 
         }
       );
 
-    if (!response.ok) {
+    if (!insertResponse.ok) {
 
       const errorText =
-        await response.text();
+        await insertResponse.text();
 
-      console.error(
-        "Erreur Supabase :",
+      throw new Error(
+        "Enregistrement impossible : " +
         errorText
       );
-
-      return;
 
     }
 
     console.log(
-      "Score enregistré dans Supabase."
+      "Nouveau joueur enregistré dans Supabase."
     );
 
   } catch (error) {
 
     console.error(
-      "Erreur réseau Supabase :",
+      "Erreur Supabase :",
       error
     );
 
@@ -748,11 +939,14 @@ async function loadLeaderboard() {
     "hidden"
   );
 
+
   // ----------------------------------------------------------
   // SUPABASE
   // ----------------------------------------------------------
 
-  if (supabaseConfigured()) {
+  if (
+    supabaseConfigured()
+  ) {
 
     try {
 
@@ -768,6 +962,7 @@ async function loadLeaderboard() {
           url,
           {
             method: "GET",
+
             headers:
               supabaseHeaders()
           }
@@ -812,7 +1007,7 @@ async function loadLeaderboard() {
 
 
   // ----------------------------------------------------------
-  // MODE LOCAL SI SUPABASE N'EST PAS CONFIGURÉ
+  // MODE LOCAL
   // ----------------------------------------------------------
 
   const localRanking =
@@ -909,7 +1104,10 @@ function saveLocalRanking() {
   );
 
   ranking =
-    ranking.slice(0, 50);
+    ranking.slice(
+      0,
+      50
+    );
 
   localStorage.setItem(
     "defiExpertRanking",
@@ -952,7 +1150,8 @@ function renderLeaderboard(
 
   }
 
-  container.innerHTML = "";
+  container.innerHTML =
+    "";
 
   rows.forEach(
     (row, index) => {
@@ -971,12 +1170,24 @@ function renderLeaderboard(
       let medal =
         rank + "e";
 
-      if (rank === 1) {
+      if (
+        rank === 1
+      ) {
+
         medal = "🥇";
-      } else if (rank === 2) {
+
+      } else if (
+        rank === 2
+      ) {
+
         medal = "🥈";
-      } else if (rank === 3) {
+
+      } else if (
+        rank === 3
+      ) {
+
         medal = "🥉";
+
       }
 
       const name =
@@ -1033,7 +1244,9 @@ function renderLeaderboard(
   // POSITION DU JOUEUR
   // ----------------------------------------------------------
 
-  if (state.player) {
+  if (
+    state.player
+  ) {
 
     const index =
       rows.findIndex(
@@ -1044,7 +1257,9 @@ function renderLeaderboard(
           state.player.toLowerCase()
       );
 
-    if (index >= 0) {
+    if (
+      index >= 0
+    ) {
 
       myRank.innerHTML =
         `👤 <strong>${escapeHTML(state.player)}</strong>
@@ -1063,7 +1278,7 @@ function renderLeaderboard(
 
 
 // ============================================================
-// PROTECTION AFFICHAGE HTML
+// PROTECTION HTML
 // ============================================================
 
 function escapeHTML(value) {
@@ -1096,7 +1311,9 @@ function escapeHTML(value) {
 function formatDate(value) {
 
   if (!value) {
+
     return "";
+
   }
 
   const date =
@@ -1159,11 +1376,14 @@ function endGame() {
 
   }
 
-  // Sauvegarde locale immédiate
+
+  // Sauvegarde locale
   saveLocalRanking();
 
-  // Sauvegarde partagée Supabase
+
+  // Sauvegarde Supabase
   saveScoreToSupabase();
+
 
   $("finalPlayer")
     .textContent =
@@ -1190,7 +1410,8 @@ function endGame() {
     state.level;
 
   $("newRecord")
-    .classList.toggle(
+    .classList
+    .toggle(
       "hidden",
       !isNew
     );
@@ -1253,29 +1474,33 @@ $("homeBtn")
 
 $("howBtn")
   .addEventListener(
-  "click",
-  () => show("how")
-);
+    "click",
+    () =>
+      show("how")
+  );
 
 
 $("leaderboardBtn")
   .addEventListener(
     "click",
-    () => show("leaderboard")
+    () =>
+      show("leaderboard")
   );
 
 
 $("aboutBtn")
   .addEventListener(
     "click",
-    () => show("about")
+    () =>
+      show("about")
   );
 
 
 $("refreshLeaderboard")
   .addEventListener(
     "click",
-    () => loadLeaderboard()
+    () =>
+      loadLeaderboard()
   );
 
 
@@ -1288,7 +1513,8 @@ document
 
       button.addEventListener(
         "click",
-        () => show("home")
+        () =>
+          show("home")
       );
 
     }
@@ -1319,7 +1545,8 @@ $("playerName")
     (event) => {
 
       if (
-        event.key === "Enter"
+        event.key ===
+        "Enter"
       ) {
 
         startGame();
@@ -1338,7 +1565,10 @@ console.log(
   "DÉFI EXPERT — Créé par Belfort"
 );
 
-if (!supabaseConfigured()) {
+
+if (
+  !supabaseConfigured()
+) {
 
   console.warn(
     "Classement partagé désactivé : configure SUPABASE_URL et SUPABASE_KEY dans game.js."
