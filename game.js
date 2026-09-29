@@ -1,2505 +1,718 @@
-/* =========================================================
-   DÉFI EXPERT
-   Créé par Belfort
-   ========================================================= */
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
 
-/* =========================================================
-   CONFIGURATION SUPABASE
-   ========================================================= */
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
 
-const SUPABASE_URL =
-  "https://snmmtigmbrrqdcesdzwg.supabase.co";
+  <meta
+    name="description"
+    content="DÉFI EXPERT — teste tes réflexes, ton attention et ta rapidité."
+  >
 
-const SUPABASE_KEY =
-  "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
+  <meta name="theme-color" content="#08111f">
 
+  <title>DÉFI EXPERT — Créé par Belfort</title>
 
-/* =========================================================
-   CONFIGURATION DU JEU
-   ========================================================= */
+  <!-- CSS -->
+  <link
+    rel="stylesheet"
+    href="style.css?v=final-20260930"
+  >
+</head>
 
-const GAME_CONFIG = {
-  maxLives: 3,
+<body>
 
-  baseTime: 5000,
+  <main class="app">
 
-  minTime: 1800,
+    <!-- =========================================================
+         ACCUEIL
+    ========================================================== -->
 
-  timeDecreasePerLevel: 180,
+    <section id="home" class="screen active">
 
-  pointsPerCorrect: 100,
+      <header class="topbar">
 
-  comboBonus: 25,
-
-  levelEvery: 5,
-
-  maxAnswers: 6,
-
-  leaderboardPageSize: 1000
-};
-
-
-/* =========================================================
-   SYMBOLES
-   ========================================================= */
-
-const SYMBOLS = [
-  "★",
-  "◆",
-  "●",
-  "▲",
-  "■",
-  "✚",
-  "✦",
-  "♥"
-];
-
-
-/* =========================================================
-   ÉTAT DU JEU
-   ========================================================= */
-
-const state = {
-
-  playerName: "",
-
-  playerKey: "",
-
-  score: 0,
-
-  bestScore: 0,
-
-  combo: 0,
-
-  maxCombo: 0,
-
-  level: 1,
-
-  lives: GAME_CONFIG.maxLives,
-
-  target: "",
-
-  answers: [],
-
-  correctAnswer: "",
-
-  timer: null,
-
-  timerStartedAt: 0,
-
-  timerDuration: GAME_CONFIG.baseTime,
-
-  gameRunning: false,
-
-  answerLocked: false
-
-};
-
-
-/* =========================================================
-   OUTILS DOM
-   ========================================================= */
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-
-/* =========================================================
-   NORMALISATION DU PSEUDO
-   ========================================================= */
-
-function normalizePlayerName(name) {
-
-  return String(name || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .substring(0, 20);
-
-}
-
-
-/* =========================================================
-   GÉNÉRATION DE PLAYER KEY
-   ========================================================= */
-
-function getPlayerKeyForName(playerName) {
-
-  const normalizedName =
-    normalizePlayerName(playerName);
-
-  const storageKey =
-    "defi_expert_player_keys";
-
-  let players = {};
-
-  try {
-
-    players = JSON.parse(
-      localStorage.getItem(storageKey) || "{}"
-    );
-
-  } catch (error) {
-
-    players = {};
-
-  }
-
-
-  const mapKey =
-    normalizedName.toLowerCase();
-
-
-  if (players[mapKey]) {
-
-    return players[mapKey];
-
-  }
-
-
-  let newKey = "";
-
-
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-
-    newKey = crypto.randomUUID();
-
-  } else {
-
-    newKey =
-      "player-" +
-      Date.now() +
-      "-" +
-      Math.random()
-        .toString(36)
-        .substring(2, 14);
-
-  }
-
-
-  players[mapKey] = newKey;
-
-
-  try {
-
-    localStorage.setItem(
-      storageKey,
-      JSON.stringify(players)
-    );
-
-  } catch (error) {
-    // Le jeu continue même si localStorage est indisponible.
-  }
-
-
-  return newKey;
-}
-
-
-/* =========================================================
-   NAVIGATION ENTRE LES ÉCRANS
-   ========================================================= */
-
-function showScreen(screenId) {
-
-  const screens =
-    document.querySelectorAll(".screen");
-
-  screens.forEach(screen => {
-
-    screen.classList.remove("active");
-
-  });
-
-
-  const target =
-    $(screenId);
-
-  if (!target) {
-    return;
-  }
-
-
-  target.classList.add("active");
-
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
-
-}
-
-
-/* =========================================================
-   MESSAGE D'ERREUR DU PSEUDO
-   ========================================================= */
-
-function showNameError(message) {
-
-  const error =
-    $("nameError");
-
-  if (!error) {
-    return;
-  }
-
-
-  error.textContent =
-    message || "";
-
-  error.style.display =
-    message ? "block" : "none";
-
-}
-
-
-/* =========================================================
-   NETTOYER LE PSEUDO
-   ========================================================= */
-
-function clearPlayerName() {
-
-  const input =
-    $("playerName");
-
-  if (!input) {
-    return;
-  }
-
-
-  input.value = "";
-
-  showNameError("");
-
-  input.focus();
-
-}
-
-
-/* =========================================================
-   DÉMARRER UNE PARTIE
-   ========================================================= */
-
-function startGame() {
-
-  const input =
-    $("playerName");
-
-  if (!input) {
-    return;
-  }
-
-
-  const playerName =
-    normalizePlayerName(input.value);
-
-
-  /* IMPORTANT :
-     Le joueur doit obligatoirement entrer
-     son prénom ou son pseudo. */
-
-  if (!playerName) {
-
-    showNameError(
-      "Entre ton prénom ou ton pseudo pour commencer."
-    );
-
-    input.focus();
-
-    return;
-
-  }
-
-
-  if (playerName.length < 2) {
-
-    showNameError(
-      "Ton prénom ou ton pseudo doit contenir au moins 2 caractères."
-    );
-
-    input.focus();
-
-    return;
-
-  }
-
-
-  /* Tout est valide */
-
-  showNameError("");
-
-
-  state.playerName =
-    playerName;
-
-  state.playerKey =
-    getPlayerKeyForName(playerName);
-
-
-  state.score = 0;
-
-  state.bestScore = 0;
-
-  state.combo = 0;
-
-  state.maxCombo = 0;
-
-  state.level = 1;
-
-  state.lives =
-    GAME_CONFIG.maxLives;
-
-  state.target = "";
-
-  state.answers = [];
-
-  state.correctAnswer = "";
-
-  state.gameRunning = true;
-
-  state.answerLocked = false;
-
-
-  $("gamePlayer").textContent =
-    state.playerName;
-
-
-  updateGameUI();
-
-
-  showScreen("game");
-
-
-  nextQuestion();
-
-}
-
-
-/* =========================================================
-   CALCUL DU TEMPS
-   ========================================================= */
-
-function getTimeForLevel() {
-
-  const duration =
-    GAME_CONFIG.baseTime -
-    (
-      (state.level - 1) *
-      GAME_CONFIG.timeDecreasePerLevel
-    );
-
-
-  return Math.max(
-    GAME_CONFIG.minTime,
-    duration
-  );
-
-}
-
-
-/* =========================================================
-   NOMBRE DE RÉPONSES
-   ========================================================= */
-
-function getAnswerCount() {
-
-  return Math.min(
-    3 + Math.floor(
-      (state.level - 1) / 3
-    ),
-    GAME_CONFIG.maxAnswers
-  );
-
-}
-
-
-/* =========================================================
-   MÉLANGE
-   ========================================================= */
-
-function shuffle(array) {
-
-  const result =
-    [...array];
-
-
-  for (
-    let i = result.length - 1;
-    i > 0;
-    i--
-  ) {
-
-    const j =
-      Math.floor(
-        Math.random() * (i + 1)
-      );
-
-    [
-      result[i],
-      result[j]
-    ] =
-    [
-      result[j],
-      result[i]
-    ];
-
-  }
-
-
-  return result;
-
-}
-
-
-/* =========================================================
-   CRÉER UNE QUESTION
-   ========================================================= */
-
-function createQuestion() {
-
-  const target =
-    SYMBOLS[
-      Math.floor(
-        Math.random() * SYMBOLS.length
-      )
-    ];
-
-
-  const answerCount =
-    getAnswerCount();
-
-
-  const wrongSymbols =
-    shuffle(
-      SYMBOLS.filter(
-        symbol =>
-          symbol !== target
-      )
-    );
-
-
-  const answers =
-    shuffle([
-      target,
-      ...wrongSymbols.slice(
-        0,
-        answerCount - 1
-      )
-    ]);
-
-
-  state.target =
-    target;
-
-  state.correctAnswer =
-    target;
-
-  state.answers =
-    answers;
-
-}
-
-
-/* =========================================================
-   AFFICHER UNE QUESTION
-   ========================================================= */
-
-function nextQuestion() {
-
-  if (!state.gameRunning) {
-    return;
-  }
-
-
-  state.answerLocked =
-    false;
-
-
-  createQuestion();
-
-
-  const target =
-    $("targetSymbol");
-
-  if (target) {
-
-    target.textContent =
-      state.target;
-
-  }
-
-
-  const status =
-    $("statusText");
-
-  if (status) {
-
-    status.textContent =
-      "Choisis le symbole correspondant.";
-
-  }
-
-
-  renderAnswers();
-
-
-  startTimer();
-
-  updateGameUI();
-
-}
-
-
-/* =========================================================
-   AFFICHER LES RÉPONSES
-   ========================================================= */
-
-function renderAnswers() {
-
-  const board =
-    $("board");
-
-  if (!board) {
-    return;
-  }
-
-
-  board.innerHTML = "";
-
-
-  state.answers.forEach(
-    (symbol, index) => {
-
-      const button =
-        document.createElement("button");
-
-
-      button.type =
-        "button";
-
-      button.className =
-        "answer-btn";
-
-      button.textContent =
-        symbol;
-
-      button.setAttribute(
-        "aria-label",
-        "Réponse " + (index + 1)
-      );
-
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          handleAnswer(
-            symbol,
-            button
-          );
-
-        }
-      );
-
-
-      board.appendChild(button);
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   CHRONOMÈTRE
-   ========================================================= */
-
-function startTimer() {
-
-  stopTimer();
-
-
-  state.timerDuration =
-    getTimeForLevel();
-
-  state.timerStartedAt =
-    Date.now();
-
-
-  const timerBar =
-    $("timerBar");
-
-
-  if (timerBar) {
-
-    timerBar.style.width =
-      "100%";
-
-  }
-
-
-  state.timer =
-    setInterval(
-      updateTimer,
-      30
-    );
-
-}
-
-
-/* =========================================================
-   METTRE À JOUR LE CHRONOMÈTRE
-   ========================================================= */
-
-function updateTimer() {
-
-  if (!state.gameRunning) {
-    return;
-  }
-
-
-  const elapsed =
-    Date.now() -
-    state.timerStartedAt;
-
-
-  const remaining =
-    Math.max(
-      0,
-      state.timerDuration - elapsed
-    );
-
-
-  const percent =
-    (
-      remaining /
-      state.timerDuration
-    ) * 100;
-
-
-  const timerBar =
-    $("timerBar");
-
-
-  if (timerBar) {
-
-    timerBar.style.width =
-      percent + "%";
-
-  }
-
-
-  if (remaining <= 0) {
-
-    stopTimer();
-
-    handleTimeout();
-
-  }
-
-}
-
-
-/* =========================================================
-   ARRÊTER LE CHRONOMÈTRE
-   ========================================================= */
-
-function stopTimer() {
-
-  if (state.timer) {
-
-    clearInterval(
-      state.timer
-    );
-
-    state.timer =
-      null;
-
-  }
-
-}
-
-
-/* =========================================================
-   RÉPONSE DU JOUEUR
-   ========================================================= */
-
-function handleAnswer(
-  selectedSymbol,
-  clickedButton
-) {
-
-  if (
-    !state.gameRunning ||
-    state.answerLocked
-  ) {
-    return;
-  }
-
-
-  state.answerLocked =
-    true;
-
-
-  stopTimer();
-
-
-  const buttons =
-    document.querySelectorAll(
-      ".answer-btn"
-    );
-
-
-  buttons.forEach(button => {
-
-    button.disabled =
-      true;
-
-  });
-
-
-  if (
-    selectedSymbol ===
-    state.correctAnswer
-  ) {
-
-    handleCorrect(
-      clickedButton
-    );
-
-  } else {
-
-    handleWrong(
-      clickedButton
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   BONNE RÉPONSE
-   ========================================================= */
-
-function handleCorrect(button) {
-
-  state.combo += 1;
-
-
-  state.maxCombo =
-    Math.max(
-      state.maxCombo,
-      state.combo
-    );
-
-
-  const basePoints =
-    GAME_CONFIG.pointsPerCorrect *
-    state.level;
-
-
-  const comboBonus =
-    Math.max(
-      0,
-      state.combo - 1
-    ) *
-    GAME_CONFIG.comboBonus;
-
-
-  const gained =
-    basePoints +
-    comboBonus;
-
-
-  state.score +=
-    gained;
-
-
-  if (button) {
-
-    button.classList.add(
-      "correct"
-    );
-
-  }
-
-
-  const status =
-    $("statusText");
-
-  if (status) {
-
-    status.textContent =
-      "+" + gained + " points";
-
-  }
-
-
-  flashScreen(
-    "correct"
-  );
-
-
-  updateGameUI();
-
-
-  setTimeout(
-    () => {
-
-      if (!state.gameRunning) {
-        return;
-      }
-
-
-      updateLevel();
-
-
-      nextQuestion();
-
-    },
-    280
-  );
-
-}
-
-
-/* =========================================================
-   MAUVAISE RÉPONSE
-   ========================================================= */
-
-function handleWrong(button) {
-
-  state.lives -= 1;
-
-  state.combo = 0;
-
-
-  if (button) {
-
-    button.classList.add(
-      "wrong"
-    );
-
-  }
-
-
-  const status =
-    $("statusText");
-
-  if (status) {
-
-    status.textContent =
-      "Mauvaise réponse";
-
-  }
-
-
-  flashScreen(
-    "wrong"
-  );
-
-
-  updateGameUI();
-
-
-  if (state.lives <= 0) {
-
-    setTimeout(
-      endGame,
-      350
-    );
-
-    return;
-
-  }
-
-
-  setTimeout(
-    () => {
-
-      if (!state.gameRunning) {
-        return;
-      }
-
-      nextQuestion();
-
-    },
-    400
-  );
-
-}
-
-
-/* =========================================================
-   TEMPS ÉCOULÉ
-   ========================================================= */
-
-function handleTimeout() {
-
-  if (
-    !state.gameRunning ||
-    state.answerLocked
-  ) {
-    return;
-  }
-
-
-  state.answerLocked =
-    true;
-
-
-  state.lives -= 1;
-
-  state.combo = 0;
-
-
-  const status =
-    $("statusText");
-
-
-  if (status) {
-
-    status.textContent =
-      "Temps écoulé !";
-
-  }
-
-
-  flashScreen(
-    "wrong"
-  );
-
-
-  updateGameUI();
-
-
-  if (state.lives <= 0) {
-
-    setTimeout(
-      endGame,
-      350
-    );
-
-    return;
-
-  }
-
-
-  setTimeout(
-    () => {
-
-      if (!state.gameRunning) {
-        return;
-      }
-
-      nextQuestion();
-
-    },
-    450
-  );
-
-}
-
-
-/* =========================================================
-   NIVEAU
-   ========================================================= */
-
-function updateLevel() {
-
-  const newLevel =
-    Math.floor(
-      state.score /
-      (
-        GAME_CONFIG.pointsPerCorrect *
-        GAME_CONFIG.levelEvery
-      )
-    ) + 1;
-
-
-  if (newLevel > state.level) {
-
-    state.level =
-      newLevel;
-
-
-    const banner =
-      $("survivalBanner");
-
-
-    if (banner) {
-
-      banner.textContent =
-        "NIVEAU " +
-        state.level;
-
-      banner.classList.add(
-        "level-up"
-      );
-
-
-      setTimeout(
-        () => {
-
-          banner.classList.remove(
-            "level-up"
-          );
-
-          banner.textContent =
-            "MODE SURVIE";
-
-        },
-        900
-      );
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   INTERFACE DU JEU
-   ========================================================= */
-
-function updateGameUI() {
-
-  const score =
-    $("score");
-
-  const level =
-    $("level");
-
-  const combo =
-    $("combo");
-
-  const hearts =
-    $("hearts");
-
-
-  if (score) {
-
-    score.textContent =
-      state.score;
-
-  }
-
-
-  if (level) {
-
-    level.textContent =
-      state.level;
-
-  }
-
-
-  if (combo) {
-
-    combo.textContent =
-      state.combo;
-
-  }
-
-
-  if (hearts) {
-
-    const full =
-      "❤️".repeat(
-        Math.max(
-          0,
-          state.lives
-        )
-      );
-
-    const empty =
-      "🖤".repeat(
-        Math.max(
-          0,
-          GAME_CONFIG.maxLives -
-          state.lives
-        )
-      );
-
-
-    hearts.textContent =
-      full + empty;
-
-  }
-
-}
-
-
-/* =========================================================
-   EFFET VISUEL
-   ========================================================= */
-
-function flashScreen(type) {
-
-  const flash =
-    $("flash");
-
-  if (!flash) {
-    return;
-  }
-
-
-  flash.className =
-    "flash " + type;
-
-
-  requestAnimationFrame(
-    () => {
-
-      flash.classList.add(
-        "show"
-      );
-
-    }
-  );
-
-
-  setTimeout(
-    () => {
-
-      flash.classList.remove(
-        "show"
-      );
-
-    },
-    180
-  );
-
-}
-
-
-/* =========================================================
-   TERMINER LA PARTIE
-   ========================================================= */
-
-async function endGame() {
-
-  if (!state.gameRunning) {
-    return;
-  }
-
-
-  state.gameRunning =
-    false;
-
-  state.answerLocked =
-    true;
-
-
-  stopTimer();
-
-
-  const previousBest =
-    await getPlayerBestScore();
-
-
-  state.bestScore =
-    Math.max(
-      previousBest,
-      state.score
-    );
-
-
-  const isNewRecord =
-    state.score >
-    previousBest;
-
-
-  $("finalPlayer").textContent =
-    state.playerName;
-
-
-  $("finalScore").textContent =
-    state.score;
-
-
-  $("finalBest").textContent =
-    state.bestScore;
-
-
-  $("finalCombo").textContent =
-    state.maxCombo;
-
-
-  $("finalLevel").textContent =
-    state.level;
-
-
-  const newRecord =
-    $("newRecord");
-
-
-  if (newRecord) {
-
-    newRecord.style.display =
-      isNewRecord
-        ? "block"
-        : "none";
-
-  }
-
-
-  showScreen(
-    "gameover"
-  );
-
-
-  /*
-    On attend la sauvegarde afin de garantir
-    que le score est envoyé à Supabase avant
-    de recharger le classement.
-  */
-
-  await saveScore();
-
-
-}
-
-
-/* =========================================================
-   OBTENIR LE MEILLEUR SCORE DU JOUEUR
-   ========================================================= */
-
-async function getPlayerBestScore() {
-
-  if (!state.playerKey) {
-    return 0;
-  }
-
-
-  try {
-
-    const url =
-      SUPABASE_URL +
-      "/rest/v1/scores" +
-      "?select=score" +
-      "&player_key=eq." +
-      encodeURIComponent(
-        state.playerKey
-      ) +
-      "&limit=1";
-
-
-    const response =
-      await fetch(
-        url,
-        {
-          method: "GET",
-
-          headers: {
-            "apikey": SUPABASE_KEY,
-
-            "Authorization":
-              "Bearer " +
-              SUPABASE_KEY
-          }
-        }
-      );
-
-
-    if (!response.ok) {
-
-      return 0;
-
-    }
-
-
-    const rows =
-      await response.json();
-
-
-    if (
-      Array.isArray(rows) &&
-      rows.length > 0
-    ) {
-
-      return Number(
-        rows[0].score
-      ) || 0;
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      "ERREUR RECHERCHE MEILLEUR SCORE :",
-      error
-    );
-
-  }
-
-
-  return 0;
-
-}
-
-
-/* =========================================================
-   SAUVEGARDER LE SCORE
-   ========================================================= */
-
-async function saveScore() {
-
-  if (
-    !state.playerName ||
-    !state.playerKey
-  ) {
-
-    return false;
-
-  }
-
-
-  try {
-
-    /*
-      On cherche d'abord le joueur.
-    */
-
-    const searchUrl =
-      SUPABASE_URL +
-      "/rest/v1/scores" +
-      "?select=id,player_name,player_key,score,max_combo,level" +
-      "&player_key=eq." +
-      encodeURIComponent(
-        state.playerKey
-      ) +
-      "&limit=1";
-
-
-    const searchResponse =
-      await fetch(
-        searchUrl,
-        {
-          method: "GET",
-
-          headers: {
-
-            "apikey":
-              SUPABASE_KEY,
-
-            "Authorization":
-              "Bearer " +
-              SUPABASE_KEY,
-
-            "Accept":
-              "application/json"
-
-          }
-        }
-      );
-
-
-    if (!searchResponse.ok) {
-
-      const errorText =
-        await searchResponse.text();
-
-      console.error(
-        "ERREUR RECHERCHE JOUEUR :",
-        searchResponse.status,
-        errorText
-      );
-
-      return false;
-
-    }
-
-
-    const rows =
-      await searchResponse.json();
-
-
-    /*
-      Le joueur existe déjà.
-    */
-
-    if (
-      Array.isArray(rows) &&
-      rows.length > 0
-    ) {
-
-      const existing =
-        rows[0];
-
-
-      const oldScore =
-        Number(
-          existing.score
-        ) || 0;
-
-
-      /*
-        On ne remplace le score que si
-        le nouveau score est supérieur.
-      */
-
-      if (
-        state.score <=
-        oldScore
-      ) {
-
-        state.bestScore =
-          oldScore;
-
-        return true;
-
-      }
-
-
-      const updateUrl =
-        SUPABASE_URL +
-        "/rest/v1/scores" +
-        "?id=eq." +
-        encodeURIComponent(
-          existing.id
-        );
-
-
-      const updateResponse =
-        await fetch(
-          updateUrl,
-          {
-            method: "PATCH",
-
-            headers: {
-
-              "apikey":
-                SUPABASE_KEY,
-
-              "Authorization":
-                "Bearer " +
-                SUPABASE_KEY,
-
-              "Content-Type":
-                "application/json",
-
-              "Prefer":
-                "return=minimal"
-
-            },
-
-            body:
-              JSON.stringify({
-
-                player_name:
-                  state.playerName,
-
-                player_key:
-                  state.playerKey,
-
-                score:
-                  state.score,
-
-                max_combo:
-                  state.maxCombo,
-
-                level:
-                  state.level,
-
-                updated_at:
-                  new Date().toISOString()
-
-              })
-
-          }
-        );
-
-
-      if (!updateResponse.ok) {
-
-        const errorText =
-          await updateResponse.text();
-
-        console.error(
-          "ERREUR MISE À JOUR SCORE :",
-          updateResponse.status,
-          errorText
-        );
-
-        return false;
-
-      }
-
-
-      state.bestScore =
-        state.score;
-
-
-      return true;
-
-    }
-
-
-    /*
-      Nouveau joueur :
-      on crée une nouvelle ligne.
-    */
-
-    const insertUrl =
-      SUPABASE_URL +
-      "/rest/v1/scores";
-
-
-    const insertResponse =
-      await fetch(
-        insertUrl,
-        {
-          method: "POST",
-
-          headers: {
-
-            "apikey":
-              SUPABASE_KEY,
-
-            "Authorization":
-              "Bearer " +
-              SUPABASE_KEY,
-
-            "Content-Type":
-              "application/json",
-
-            "Prefer":
-              "return=minimal"
-
-          },
-
-          body:
-            JSON.stringify({
-
-              player_name:
-                state.playerName,
-
-              player_key:
-                state.playerKey,
-
-              score:
-                state.score,
-
-              max_combo:
-                state.maxCombo,
-
-              level:
-                state.level,
-
-              created_at:
-                new Date().toISOString(),
-
-              updated_at:
-                new Date().toISOString()
-
-            })
-
-        }
-      );
-
-
-    if (!insertResponse.ok) {
-
-      const errorText =
-        await insertResponse.text();
-
-      console.error(
-        "ERREUR INSERTION SCORE :",
-        insertResponse.status,
-        errorText
-      );
-
-      return false;
-
-    }
-
-
-    state.bestScore =
-      state.score;
-
-
-    return true;
-
-  } catch (error) {
-
-    console.error(
-      "ERREUR SUPABASE :",
-      error
-    );
-
-    return false;
-
-  }
-
-}
-
-
-/* =========================================================
-   CHARGER TOUS LES SCORES
-   ========================================================= */
-
-async function loadLeaderboard() {
-
-  const list =
-    $("leaderboardList");
-
-  const myRank =
-    $("myRank");
-
-
-  if (list) {
-
-    list.innerHTML =
-      `
-        <div class="loading">
-          Chargement du classement...
-        </div>
-      `;
-
-  }
-
-
-  if (myRank) {
-
-    myRank.textContent =
-      "";
-
-  }
-
-
-  try {
-
-    let allRows = [];
-
-    let offset = 0;
-
-    const pageSize =
-      GAME_CONFIG.leaderboardPageSize;
-
-
-    /*
-      On récupère les scores par blocs
-      pour ne pas limiter le classement
-      aux 50 premiers joueurs.
-    */
-
-    while (true) {
-
-      const url =
-        SUPABASE_URL +
-        "/rest/v1/scores" +
-        "?select=id,player_name,player_key,score,max_combo,level,created_at,updated_at" +
-        "&order=score.desc" +
-        "&offset=" +
-        offset +
-        "&limit=" +
-        pageSize;
-
-
-      const response =
-        await fetch(
-          url,
-          {
-            method: "GET",
-
-            headers: {
-
-              "apikey":
-                SUPABASE_KEY,
-
-              "Authorization":
-                "Bearer " +
-                SUPABASE_KEY,
-
-              "Accept":
-                "application/json"
-
-            }
-          }
-        );
-
-
-      if (!response.ok) {
-
-        const errorText =
-          await response.text();
-
-        throw new Error(
-          "Supabase " +
-          response.status +
-          " : " +
-          errorText
-        );
-
-      }
-
-
-      const rows =
-        await response.json();
-
-
-      if (
-        !Array.isArray(rows) ||
-        rows.length === 0
-      ) {
-
-        break;
-
-      }
-
-
-      allRows =
-        allRows.concat(rows);
-
-
-      if (
-        rows.length <
-        pageSize
-      ) {
-
-        break;
-
-      }
-
-
-      offset +=
-        pageSize;
-
-
-      /*
-        Sécurité contre une boucle infinie.
-      */
-
-      if (offset > 100000) {
-
-        break;
-
-      }
-
-    }
-
-
-    renderLeaderboard(
-      allRows
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "ERREUR CLASSEMENT :",
-      error
-    );
-
-
-    if (list) {
-
-      list.innerHTML =
-        `
-          <div class="loading">
-            Impossible de charger le classement.
-            <br>
-            Vérifie ta connexion puis actualise.
+        <div class="brand">
+          <div class="brand-title">
+            DÉFI <span>EXPERT</span>
           </div>
-        `;
 
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   AFFICHER LE CLASSEMENT
-   ========================================================= */
-
-function renderLeaderboard(rows) {
-
-  const list =
-    $("leaderboardList");
-
-  const myRank =
-    $("myRank");
-
-
-  if (!list) {
-    return;
-  }
-
-
-  list.innerHTML =
-    "";
-
-
-  if (
-    !Array.isArray(rows) ||
-    rows.length === 0
-  ) {
-
-    list.innerHTML =
-      `
-        <div class="loading">
-          Aucun score pour le moment.
+          <div class="brand-subtitle">
+            MODE RÉFLEXE
+          </div>
         </div>
-      `;
 
-    return;
+        <div class="creator">
+          Créé par Belfort
+        </div>
 
-  }
-
-
-  /*
-    Sécurité :
-    classement toujours trié du plus grand
-    score au plus petit.
-  */
-
-  const sorted =
-    [...rows].sort(
-      (a, b) =>
-        (Number(b.score) || 0) -
-        (Number(a.score) || 0)
-    );
+      </header>
 
 
-  let playerPosition =
-    null;
+      <div class="home-content">
+
+        <div class="hero-badge">
+          ⚡ MODE RÉFLEXE
+        </div>
+
+        <h1>
+          Teste tes réflexes.
+        </h1>
+
+        <p class="hero-text">
+          Observe. Réfléchis. Réagis.<br>
+          Jusqu'où peux-tu aller ?
+        </p>
 
 
-  sorted.forEach(
-    (row, index) => {
+        <!-- CARTE JOUEUR -->
 
-      const rank =
-        index + 1;
+        <div class="player-card">
 
+          <label for="playerName">
+            TON PRÉNOM OU PSEUDO
+          </label>
 
-      const item =
-        document.createElement("div");
+          <div class="name-input-wrap">
 
+            <input
+              id="playerName"
+              type="text"
+              maxlength="18"
+              autocomplete="nickname"
+              placeholder="Ex. Belfort"
+              spellcheck="false"
+            >
 
-      item.className =
-        "leaderboard-row";
+            <button
+              id="clearName"
+              class="clear-name"
+              type="button"
+              aria-label="Effacer le nom"
+              title="Effacer"
+            >
+              ×
+            </button>
 
-
-      if (
-        state.playerKey &&
-        row.player_key ===
-        state.playerKey
-      ) {
-
-        item.classList.add(
-          "current-player"
-        );
-
-        playerPosition =
-          rank;
-
-      }
-
-
-      let medal = "";
-
-      if (rank === 1) {
-        medal = "🥇";
-      } else if (rank === 2) {
-        medal = "🥈";
-      } else if (rank === 3) {
-        medal = "🥉";
-      }
+          </div>
 
 
-      item.innerHTML =
-        `
-          <span class="rank">
-            ${medal || rank}
+          <div
+            id="nameError"
+            class="name-error hidden"
+            role="alert"
+            aria-live="polite"
+          >
+            Entre ton prénom ou ton pseudo pour commencer.
+          </div>
+
+
+          <button
+            id="startBtn"
+            class="primary-btn"
+            type="button"
+          >
+            COMMENCER
+          </button>
+
+        </div>
+
+
+        <!-- MENU -->
+
+        <div class="menu-grid">
+
+          <button
+            id="howBtn"
+            class="menu-card"
+            type="button"
+          >
+            <span class="menu-icon">
+              🎯
+            </span>
+
+            <span>
+              <strong>
+                Comment jouer
+              </strong>
+
+              <small>
+                Découvrir les règles
+              </small>
+            </span>
+          </button>
+
+
+          <button
+            class="menu-card"
+            type="button"
+            onclick="show('about')"
+          >
+            <span class="menu-icon">
+              ℹ️
+            </span>
+
+            <span>
+              <strong>
+                À propos
+              </strong>
+
+              <small>
+                À propos de DÉFI EXPERT
+              </small>
+            </span>
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <footer class="footer">
+        © DÉFI EXPERT · Créé par Belfort
+      </footer>
+
+    </section>
+
+
+    <!-- =========================================================
+         COMMENT JOUER
+    ========================================================== -->
+
+    <section id="how" class="screen">
+
+      <div class="page-header">
+
+        <button
+          class="back-btn"
+          data-back="home"
+          type="button"
+          aria-label="Retour"
+        >
+          ←
+        </button>
+
+        <div>
+
+          <h2>
+            Comment jouer
+          </h2>
+
+          <p>
+            Les règles du défi
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <div class="info-item">
+
+          <div class="info-number">
+            01
+          </div>
+
+          <div>
+
+            <h3>
+              Entre ton pseudo
+            </h3>
+
+            <p>
+              Choisis ton prénom ou ton pseudo avant de commencer.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+          <div class="info-number">
+            02
+          </div>
+
+          <div>
+
+            <h3>
+              Observe la cible
+            </h3>
+
+            <p>
+              Un symbole apparaît au centre de l'écran.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+          <div class="info-number">
+            03
+          </div>
+
+          <div>
+
+            <h3>
+              Choisis le bon symbole
+            </h3>
+
+            <p>
+              Repère rapidement le symbole cible parmi les figures proposées.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+          <div class="info-number">
+            04
+          </div>
+
+          <div>
+
+            <h3>
+              Sois rapide
+            </h3>
+
+            <p>
+              Le chronomètre diminue pendant chaque manche.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+          <div class="info-number">
+            05
+          </div>
+
+          <div>
+
+            <h3>
+              Attention aux erreurs
+            </h3>
+
+            <p>
+              Tu disposes de trois vies. Une erreur ou un temps écoulé te fait perdre une vie.
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <button
+        class="secondary-btn"
+        data-back="home"
+        type="button"
+      >
+        RETOUR
+      </button>
+
+    </section>
+
+
+    <!-- =========================================================
+         À PROPOS
+    ========================================================== -->
+
+    <section id="about" class="screen">
+
+      <div class="page-header">
+
+        <button
+          class="back-btn"
+          data-back="home"
+          type="button"
+          aria-label="Retour"
+        >
+          ←
+        </button>
+
+        <div>
+
+          <h2>
+            À propos
+          </h2>
+
+          <p>
+            DÉFI EXPERT
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="about-card">
+
+        <div class="about-logo">
+          DE
+        </div>
+
+        <h2>
+          DÉFI EXPERT
+        </h2>
+
+        <p>
+          Un jeu de réflexion et de rapidité conçu pour tester
+          tes réflexes, ton attention et ta capacité à réagir
+          sous pression.
+        </p>
+
+
+        <div class="creator-box">
+
+          <span>
+            CRÉATEUR
           </span>
 
-          <span class="leader-name">
-            ${escapeHtml(
-              row.player_name ||
-              "Joueur"
-            )}
-          </span>
-
-          <strong class="leader-score">
-            ${Number(
-              row.score
-            ) || 0}
+          <strong>
+            Créé par Belfort
           </strong>
-        `;
 
+        </div>
 
-      list.appendChild(
-        item
-      );
 
-    }
-  );
+        <div class="version">
+          Version 1.0
+        </div>
 
+      </div>
 
-  if (
-    myRank &&
-    playerPosition
-  ) {
 
-    myRank.textContent =
-      "Ta position : #" +
-      playerPosition;
+      <button
+        class="secondary-btn"
+        data-back="home"
+        type="button"
+      >
+        RETOUR
+      </button>
 
-  }
+    </section>
 
-}
 
+    <!-- =========================================================
+         JEU
+    ========================================================== -->
 
-/* =========================================================
-   PROTECTION DU HTML
-   ========================================================= */
+    <section id="game" class="screen">
 
-function escapeHtml(value) {
+      <!-- BARRE SUPÉRIEURE -->
 
-  return String(value)
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+      <div class="game-topbar">
 
-}
+        <div class="game-player-block">
 
+          <span>
+            JOUEUR
+          </span>
 
-/* =========================================================
-   QUITTER LA PARTIE
-   ========================================================= */
+          <strong id="gamePlayer">
+            ---
+          </strong>
 
-function quitGame() {
+        </div>
 
-  const confirmed =
-    window.confirm(
-      "Quitter cette partie ?"
-    );
 
+        <button
+          id="quitBtn"
+          class="quit-btn"
+          type="button"
+        >
+          QUITTER
+        </button>
 
-  if (!confirmed) {
-    return;
-  }
+      </div>
 
 
-  state.gameRunning =
-    false;
+      <!-- STATISTIQUES -->
 
-  state.answerLocked =
-    true;
+      <div class="stats">
 
+        <div class="stat-box">
 
-  stopTimer();
+          <span>
+            SCORE
+          </span>
 
+          <strong id="score">
+            0
+          </strong>
 
-  showScreen(
-    "home"
-  );
+        </div>
 
-}
 
+        <div class="stat-box">
 
-/* =========================================================
-   REJOUER
-   ========================================================= */
+          <span>
+            NIVEAU
+          </span>
 
-function replayGame() {
+          <strong id="level">
+            1
+          </strong>
 
-  if (!state.playerName) {
+        </div>
 
-    showScreen(
-      "home"
-    );
 
-    return;
+        <div class="stat-box">
 
-  }
+          <span>
+            COMBO
+          </span>
 
+          <strong id="combo">
+            0
+          </strong>
 
-  startGameWithExistingPlayer();
+        </div>
 
-}
+      </div>
 
 
-/* =========================================================
-   REJOUER AVEC LE MÊME JOUEUR
-   ========================================================= */
+      <!-- VIES -->
 
-function startGameWithExistingPlayer() {
+      <div class="lives-row">
 
-  const playerName =
-    state.playerName;
+        <span>
+          VIES
+        </span>
 
+        <strong id="hearts">
+          ❤️❤️❤️
+        </strong>
 
-  state.playerKey =
-    getPlayerKeyForName(
-      playerName
-    );
+      </div>
 
 
-  state.score = 0;
+      <!-- MODE SURVIE -->
 
-  state.combo = 0;
+      <div
+        id="survivalBanner"
+        class="survival-banner hidden"
+      >
+        MODE SURVIE
+      </div>
 
-  state.maxCombo = 0;
 
-  state.level = 1;
+      <!-- CHRONOMÈTRE -->
 
-  state.lives =
-    GAME_CONFIG.maxLives;
+      <div class="timer-container">
 
-  state.target = "";
+        <div
+          id="timerBar"
+          class="timer-bar"
+        ></div>
 
-  state.answers = [];
+      </div>
 
-  state.correctAnswer = "";
 
-  state.gameRunning =
-    true;
+      <!-- CIBLE -->
 
-  state.answerLocked =
-    false;
+      <div class="target-section">
 
+        <div class="target-label">
+          SYMBOLE CIBLE
+        </div>
 
-  $("gamePlayer").textContent =
-    playerName;
 
+        <div
+          id="targetSymbol"
+          class="target-symbol"
+        >
+          ★
+        </div>
 
-  updateGameUI();
 
+        <div
+          id="statusText"
+          class="status-text"
+        >
+          Choisis le symbole correspondant.
+        </div>
 
-  showScreen(
-    "game"
-  );
+      </div>
 
 
-  nextQuestion();
+      <!-- GRILLE DES FIGURES -->
 
-}
+      <div
+        id="board"
+        class="answer-board"
+      ></div>
 
 
-/* =========================================================
-   CHANGER DE JOUEUR
-   ========================================================= */
+      <!-- FLASH D'ERREUR -->
 
-function changePlayer() {
+      <div
+        id="flash"
+        class="flash"
+        aria-hidden="true"
+      ></div>
 
-  state.gameRunning =
-    false;
+    </section>
 
-  state.answerLocked =
-    true;
 
+    <!-- =========================================================
+         FIN DE PARTIE
+    ========================================================== -->
 
-  stopTimer();
+    <section id="gameover" class="screen">
 
+      <div class="gameover-card">
 
-  showScreen(
-    "home"
-  );
+        <div class="gameover-icon">
+          🏆
+        </div>
 
 
-  const input =
-    $("playerName");
+        <div class="gameover-label">
+          PARTIE TERMINÉE
+        </div>
 
 
-  if (input) {
+        <h2>
+          Bien joué,
+          <span id="finalPlayer">
+            ---
+          </span>
+        </h2>
 
-    input.value =
-      "";
 
-    input.focus();
+        <!-- SCORE FINAL -->
 
-  }
+        <div class="final-score-box">
 
+          <span>
+            SCORE
+          </span>
 
-  showNameError("");
+          <strong id="finalScore">
+            0
+          </strong>
 
-}
+        </div>
 
 
-/* =========================================================
-   ÉVÉNEMENT DOM
-   ========================================================= */
+        <!-- STATISTIQUES FINALES -->
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
+        <div class="final-stats">
 
-    /* -------------------------
-       COMMENCER
-    ------------------------- */
+          <div>
 
-    const startBtn =
-      $("startBtn");
+            <span>
+              MEILLEUR SCORE
+            </span>
 
+            <strong id="finalBest">
+              0
+            </strong>
 
-    if (startBtn) {
+          </div>
 
-      startBtn.addEventListener(
-        "click",
-        startGame
-      );
 
-    }
+          <div>
 
+            <span>
+              COMBO
+            </span>
 
-    /* -------------------------
-       ENTRÉE PSEUDO
-    ------------------------- */
+            <strong id="finalCombo">
+              0
+            </strong>
 
-    const playerName =
-      $("playerName");
+          </div>
 
 
-    if (playerName) {
+          <div>
 
-      playerName.addEventListener(
-        "input",
-        () => {
+            <span>
+              NIVEAU
+            </span>
 
-          showNameError("");
+            <strong id="finalLevel">
+              1
+            </strong>
 
-        }
-      );
+          </div>
 
+        </div>
 
-      playerName.addEventListener(
-        "keydown",
-        event => {
 
-          if (
-            event.key ===
-            "Enter"
-          ) {
+        <!-- NOUVEAU RECORD -->
 
-            event.preventDefault();
+        <div
+          id="newRecord"
+          class="new-record hidden"
+        >
+          ★ NOUVEAU RECORD ★
+        </div>
 
-            startGame();
 
-          }
+        <!-- ACTIONS -->
 
-        }
-      );
+        <div class="gameover-actions">
 
-    }
+          <button
+            id="againBtn"
+            class="primary-btn"
+            type="button"
+          >
+            REJOUER
+          </button>
 
 
-    /* -------------------------
-       EFFACER PSEUDO
-    ------------------------- */
+          <button
+            id="changePlayerBtn"
+            class="secondary-btn"
+            type="button"
+          >
+            CHANGER DE JOUEUR
+          </button>
 
-    const clearName =
-      $("clearName");
 
+          <button
+            id="homeBtn"
+            class="text-btn"
+            type="button"
+          >
+            RETOUR À L'ACCUEIL
+          </button>
 
-    if (clearName) {
+        </div>
 
-      clearName.addEventListener(
-        "click",
-        clearPlayerName
-      );
+      </div>
 
-    }
+    </section>
 
+  </main>
 
-    /* -------------------------
-       COMMENT JOUER
-    ------------------------- */
 
-    const howBtn =
-      $("howBtn");
+  <!-- =========================================================
+       JAVASCRIPT
+  ========================================================== -->
 
+  <script src="game.js?v=final-20260930"></script>
 
-    if (howBtn) {
-
-      howBtn.addEventListener(
-        "click",
-        () => {
-
-          showScreen(
-            "how"
-          );
-
-        }
-      );
-
-    }
-
-
-    /* -------------------------
-       CLASSEMENT
-    ------------------------- */
-
-    const leaderboardBtn =
-      $("leaderboardBtn");
-
-
-    if (leaderboardBtn) {
-
-      leaderboardBtn.addEventListener(
-        "click",
-        async () => {
-
-          showScreen(
-            "leaderboard"
-          );
-
-          await loadLeaderboard();
-
-        }
-      );
-
-    }
-
-
-    /* -------------------------
-       À PROPOS
-    ------------------------- */
-
-    const aboutBtn =
-      $("aboutBtn");
-
-
-    if (aboutBtn) {
-
-      aboutBtn.addEventListener(
-        "click",
-        () => {
-
-          showScreen(
-            "about"
-          );
-
-        }
-      );
-
-    }
-
-
-    /* -------------------------
-       ACTUALISER CLASSEMENT
-    ------------------------- */
-
-    const refresh =
-      $("refreshLeaderboard");
-
-
-    if (refresh) {
-
-      refresh.addEventListener(
-        "click",
-        loadLeaderboard
-      );
-
-    }
-
-
-    /* -------------------------
-       RETOUR
-    ------------------------- */
-
-    document
-      .querySelectorAll(
-        "[data-back]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            () => {
-
-              const destination =
-                button.dataset.back;
-
-              showScreen(
-                destination
-              );
-
-            }
-          );
-
-        }
-      );
-
-
-    /* -------------------------
-       QUITTER
-    ------------------------- */
-
-    const quitBtn =
-      $("quitBtn");
-
-
-    if (quitBtn) {
-
-      quitBtn.addEventListener(
-        "click",
-        quitGame
-      );
-
-    }
-
-
-    /* -------------------------
-       REJOUER
-    ------------------------- */
-
-    const againBtn =
-      $("againBtn");
-
-
-    if (againBtn) {
-
-      againBtn.addEventListener(
-        "click",
-        replayGame
-      );
-
-    }
-
-
-    /* -------------------------
-       CHANGER DE JOUEUR
-    ------------------------- */
-
-    const changePlayerBtn =
-      $("changePlayerBtn");
-
-
-    if (changePlayerBtn) {
-
-      changePlayerBtn.addEventListener(
-        "click",
-        changePlayer
-      );
-
-    }
-
-
-    /* -------------------------
-       ACCUEIL
-    ------------------------- */
-
-    const homeBtn =
-      $("homeBtn");
-
-
-    if (homeBtn) {
-
-      homeBtn.addEventListener(
-        "click",
-        () => {
-
-          state.gameRunning =
-            false;
-
-          state.answerLocked =
-            true;
-
-          stopTimer();
-
-          showScreen(
-            "home"
-          );
-
-        }
-      );
-
-    }
-
-
-    /* -------------------------
-       ÉTAT INITIAL
-    ------------------------- */
-
-    showScreen(
-      "home"
-    );
-
-
-    /*
-      Si un ancien pseudo existe déjà
-      dans le navigateur, on peut le
-      proposer dans le champ, mais
-      JAMAIS démarrer automatiquement
-      la partie.
-    */
-
-    try {
-
-      const savedName =
-        localStorage.getItem(
-          "defi_expert_last_name"
-        );
-
-
-      if (
-        savedName &&
-        playerName
-      ) {
-
-        playerName.value =
-          savedName;
-
-      }
-
-    } catch (error) {
-      // Rien à faire.
-    }
-
-  }
-);
-
-
-/* =========================================================
-   SAUVEGARDER LE DERNIER PSEUDO
-   ========================================================= */
-
-window.addEventListener(
-  "beforeunload",
-  () => {
-
-    if (!state.playerName) {
-      return;
-    }
-
-
-    try {
-
-      localStorage.setItem(
-        "defi_expert_last_name",
-        state.playerName
-      );
-
-    } catch (error) {
-      // Rien à faire.
-    }
-
-  }
-);
+</body>
+</html>
