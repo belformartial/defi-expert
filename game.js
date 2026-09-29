@@ -1,783 +1,404 @@
-// ============================================================
-// DÉFI EXPERT
-// Créé par Belfort
-// ============================================================
-
-const SUPABASE_URL = "https://snmmtigmbrrqdcesdzwg.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
+/* =========================================================
+   DÉFI EXPERT
+   Créé par Belfort
+   Version complète avec classement partagé Supabase
+   ========================================================= */
 
 
-// ============================================================
-// CONFIGURATION DU JEU
-// ============================================================
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
+const SUPABASE_URL =
+  "https://snmmtigmbrrqdcesdzwg.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_Hlb0Qbn-307abqSvRmyB8w_FbcsT3ze";
+
+
+/* =========================================================
+   CONFIGURATION
+   ========================================================= */
+
+const MAX_LEADERBOARD = 50;
+const GAME_TIME = 30;
 
 const SYMBOLS = [
   "◆",
   "●",
   "▲",
+  "■",
   "★",
   "✚",
-  "✦",
   "⬟",
-  "♥",
-  "☀"
+  "⬢"
 ];
 
+
+/* =========================================================
+   QUESTIONS
+   ========================================================= */
+
+const QUESTIONS = [
+  {
+    question: "Combien font 7 × 8 ?",
+    answer: "56"
+  },
+  {
+    question: "Quelle est la capitale de la France ?",
+    answer: "PARIS"
+  },
+  {
+    question: "Combien y a-t-il de continents ?",
+    answer: "7"
+  },
+  {
+    question: "Quelle planète est appelée la planète rouge ?",
+    answer: "MARS"
+  },
+  {
+    question: "Combien font 12 × 12 ?",
+    answer: "144"
+  },
+  {
+    question: "Quel est le symbole chimique de l'eau ?",
+    answer: "H2O"
+  },
+  {
+    question: "Combien de côtés possède un triangle ?",
+    answer: "3"
+  },
+  {
+    question: "Quelle est la plus grande planète du système solaire ?",
+    answer: "JUPITER"
+  },
+  {
+    question: "Combien font 100 ÷ 4 ?",
+    answer: "25"
+  },
+  {
+    question: "Quel organe pompe le sang dans le corps humain ?",
+    answer: "COEUR"
+  },
+  {
+    question: "Quelle est la capitale de la République centrafricaine ?",
+    answer: "BANGUI"
+  },
+  {
+    question: "Combien font 15 + 27 ?",
+    answer: "42"
+  }
+];
+
+
+/* =========================================================
+   ÉTAT DU JEU
+   ========================================================= */
+
 const state = {
+  player: "",
+  playerKey: "",
   score: 0,
-  lives: 3,
+  level: 1,
   combo: 0,
   maxCombo: 0,
-  level: 1,
-  target: null,
+  lives: 3,
+  timeLeft: GAME_TIME,
+  currentQuestion: null,
+  currentAnswer: null,
   timer: null,
-  deadline: 0,
-  best: 0,
-  running: false,
-  round: 0,
-  player: ""
+  gameRunning: false
 };
 
 
-// ============================================================
-// OUTILS
-// ============================================================
+/* =========================================================
+   OUTIL DOM
+   ========================================================= */
 
-const $ = (id) => document.getElementById(id);
-
-const screens = [
-  "home",
-  "how",
-  "leaderboard",
-  "about",
-  "game",
-  "gameover"
-];
-
-
-function show(id) {
-
-  screens.forEach((screen) => {
-
-    const element = $(screen);
-
-    if (element) {
-
-      element.classList.toggle(
-        "active",
-        screen === id
-      );
-
-    }
-
-  });
-
-  if (id === "leaderboard") {
-
-    loadLeaderboard();
-
-  }
-
+function $(id) {
+  return document.getElementById(id);
 }
 
 
-function shuffle(array) {
+/* =========================================================
+   SUPABASE
+   ========================================================= */
 
-  for (
-    let i = array.length - 1;
-    i > 0;
-    i--
-  ) {
-
-    const j =
-      Math.floor(
-        Math.random() * (i + 1)
-      );
-
-    [
-      array[i],
-      array[j]
-    ] = [
-      array[j],
-      array[i]
-    ];
-
-  }
-
-  return array;
-
-}
-
-
-function getSavedName() {
-
+function supabaseConfigured() {
   return (
-    localStorage.getItem(
-      "defiExpertPlayer"
-    ) || ""
+    SUPABASE_URL &&
+    SUPABASE_KEY &&
+    SUPABASE_URL.includes("supabase.co") &&
+    SUPABASE_KEY.startsWith("sb_")
   );
-
 }
 
 
-function saveName(name) {
-
-  state.player = name;
-
-  localStorage.setItem(
-    "defiExpertPlayer",
-    name
-  );
-
-}
-
-
-// ============================================================
-// INITIALISATION DU PROFIL
-// ============================================================
-
-function loadProfile() {
-
-  const name =
-    getSavedName();
-
-  $("playerName").value =
-    name;
-
-  state.player =
-    name;
-
-}
-
-
-loadProfile();
-
-
-$("clearName").addEventListener(
-  "click",
-  () => {
-
-    $("playerName").value =
-      "";
-
-    localStorage.removeItem(
-      "defiExpertPlayer"
-    );
-
-    $("playerName").focus();
-
-  }
-);
-
-
-$("playerName").addEventListener(
-  "input",
-  () => {
-
-    $("nameError")
-      .classList
-      .add("hidden");
-
-  }
-);
-
-
-// ============================================================
-// DIFFICULTÉ
-// ============================================================
-
-function difficulty() {
-
+function supabaseHeaders(extra = {}) {
   return {
-
-    tiles:
-      Math.min(
-        9,
-        5 +
-        Math.floor(
-          (state.level - 1) / 2
-        )
-      ),
-
-    time:
-      Math.max(
-        700,
-        2300 -
-        (state.level - 1) * 115
-      )
-
+    "apikey": SUPABASE_KEY,
+    "Authorization": "Bearer " + SUPABASE_KEY,
+    "Content-Type": "application/json",
+    ...extra
   };
-
 }
 
 
-// ============================================================
-// DÉMARRER LE JEU
-// ============================================================
+/* =========================================================
+   NORMALISATION DU PSEUDO
+   ========================================================= */
 
-function startGame() {
+function normalizePlayerName(name) {
+  return String(name || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 30);
+}
 
-  const raw =
-    $("playerName")
-      .value
-      .trim();
 
-  if (!raw) {
+/* =========================================================
+   IDENTIFIANT UNIQUE DU JOUEUR
+   =========================================================
 
-    $("nameError")
-      .classList
-      .remove("hidden");
+   IMPORTANT :
 
-    $("playerName").focus();
+   On ne garde PAS une seule clé pour tout le téléphone.
 
-    return;
+   Chaque pseudo utilisé sur un appareil possède sa propre clé.
+
+   Exemple :
+
+   Téléphone A :
+   Belfort -> clé A
+   Kevin   -> clé B
+
+   Téléphone B :
+   Sarah   -> clé C
+   Kevin   -> clé D
+
+   Ainsi chaque participation peut avoir sa propre ligne
+   dans le classement Supabase.
+   ========================================================= */
+
+function getPlayerKeyForName(playerName) {
+
+  const normalizedName =
+    normalizePlayerName(playerName);
+
+  const storageKey =
+    "defi_expert_player_keys";
+
+  let players = {};
+
+  try {
+
+    players =
+      JSON.parse(
+        localStorage.getItem(storageKey) || "{}"
+      );
+
+  } catch (error) {
+
+    players = {};
 
   }
 
-  const name =
-    raw
-      .replace(/\s+/g, " ")
-      .slice(0, 18);
 
-  $("playerName").value =
-    name;
-
-  saveName(name);
-
-  state.best =
-    Number(
-      localStorage.getItem(
-        "defiExpertBest_" +
-        name.toLowerCase()
-      ) || 0
-    );
-
-  state.score = 0;
-  state.lives = 3;
-  state.combo = 0;
-  state.maxCombo = 0;
-  state.level = 1;
-  state.round = 0;
-  state.running = true;
-
-  $("gamePlayer").textContent =
-    name;
-
-  $("survivalBanner")
-    .classList
-    .add("hidden");
-
-  show("game");
-
-  updateHUD();
-
-  nextRound();
-
-}
+  const mapKey =
+    normalizedName.toLowerCase();
 
 
-// ============================================================
-// CRÉER LES CASES
-// ============================================================
+  /*
+    Le pseudo possède déjà une clé
+    sur cet appareil.
+  */
 
-function makeTiles() {
+  if (players[mapKey]) {
 
-  const board =
-    $("board");
-
-  board.innerHTML =
-    "";
-
-  const d =
-    difficulty();
-
-  const choices =
-    shuffle([...SYMBOLS])
-      .slice(0, d.tiles);
-
-  state.target =
-    choices[
-      Math.floor(
-        Math.random() *
-        choices.length
-      )
-    ];
-
-  $("targetSymbol")
-    .textContent =
-    state.target;
-
-  let symbols =
-    [...choices];
-
-  while (
-    symbols.length < 9
-  ) {
-
-    symbols.push(
-      SYMBOLS[
-        Math.floor(
-          Math.random() *
-          SYMBOLS.length
-        )
-      ]
-    );
+    return players[mapKey];
 
   }
 
-  symbols[
-    Math.floor(
-      Math.random() * 9
-    )
-  ] =
-    state.target;
 
-  shuffle(symbols)
-    .forEach(
-      (symbol) => {
+  /*
+    Créer une nouvelle clé unique.
+  */
 
-        const tile =
-          document.createElement(
-            "button"
-          );
+  let newKey = "";
 
-        tile.className =
-          "tile";
-
-        tile.textContent =
-          symbol;
-
-        tile.setAttribute(
-          "aria-label",
-          "Symbole " + symbol
-        );
-
-        tile.addEventListener(
-          "click",
-          () =>
-            tapTile(
-              tile,
-              symbol
-            ),
-          {
-            once: true
-          }
-        );
-
-        board.appendChild(
-          tile
-        );
-
-      }
-    );
-
-}
-
-
-// ============================================================
-// TOUR SUIVANT
-// ============================================================
-
-function nextRound() {
-
-  if (!state.running) {
-
-    return;
-
-  }
-
-  state.round++;
-
-  state.level =
-    Math.min(
-      99,
-      1 +
-      Math.floor(
-        state.round / 6
-      )
-    );
-
-  updateHUD();
-
-  makeTiles();
-
-  startTimer(
-    difficulty().time
-  );
-
-}
-
-
-// ============================================================
-// CHRONOMÈTRE
-// ============================================================
-
-function startTimer(ms) {
-
-  clearTimeout(
-    state.timer
-  );
-
-  const start =
-    performance.now();
-
-  state.deadline =
-    start + ms;
-
-  const bar =
-    $("timerBar");
-
-  bar.style.transition =
-    "none";
-
-  bar.style.width =
-    "100%";
-
-  requestAnimationFrame(
-    () => {
-
-      bar.style.transition =
-        `width ${ms}ms linear`;
-
-      bar.style.width =
-        "0%";
-
-    }
-  );
-
-  state.timer =
-    setTimeout(
-      () =>
-        miss(
-          "Temps écoulé !"
-        ),
-      ms
-    );
-
-}
-
-
-// ============================================================
-// CLIQUE SUR UNE CASE
-// ============================================================
-
-function tapTile(
-  tile,
-  symbol
-) {
-
-  if (!state.running) {
-
-    return;
-
-  }
-
-  clearTimeout(
-    state.timer
-  );
 
   if (
-    symbol ===
-    state.target
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
   ) {
 
-    tile.classList.add(
-      "correct"
-    );
-
-    state.combo++;
-
-    state.maxCombo =
-      Math.max(
-        state.maxCombo,
-        state.combo
-      );
-
-    const speedBonus =
-      Math.max(
-        0,
-        Math.round(
-          (
-            state.deadline -
-            performance.now()
-          ) / 50
-        )
-      );
-
-    state.score +=
-      10 +
-      speedBonus +
-      Math.min(
-        10,
-        state.combo - 1
-      ) * 2;
-
-    $("statusText")
-      .textContent =
-      state.combo >= 5
-        ? "🔥 COMBO EN FEU !"
-        : "✓ BONNE RÉPONSE";
-
-    updateHUD();
-
-    setTimeout(
-      nextRound,
-      110
-    );
+    newKey =
+      crypto.randomUUID();
 
   } else {
 
-    tile.classList.add(
-      "wrong"
+    newKey =
+      "player-" +
+      Date.now() +
+      "-" +
+      Math.random()
+        .toString(36)
+        .substring(2, 14);
+
+  }
+
+
+  players[mapKey] =
+    newKey;
+
+
+  try {
+
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify(players)
     );
 
-    miss(
-      "Mauvais symbole !"
+  } catch (error) {
+
+    console.warn(
+      "Impossible de sauvegarder player_key localement."
     );
 
   }
 
+
+  return newKey;
 }
 
 
-// ============================================================
-// ERREUR / TEMPS DÉPASSÉ
-// ============================================================
-
-function miss(message) {
-
-  if (!state.running) {
-
-    return;
-
-  }
-
-  clearTimeout(
-    state.timer
-  );
-
-  state.lives--;
-
-  state.combo = 0;
-
-  $("statusText")
-    .textContent =
-    message;
-
-  $("flash")
-    .classList
-    .add("show");
-
-  setTimeout(
-    () => {
-
-      $("flash")
-        .classList
-        .remove("show");
-
-    },
-    220
-  );
-
-  updateHUD();
-
-  if (
-    state.lives <= 0
-  ) {
-
-    endGame();
-
-    return;
-
-  }
-
-  if (
-    state.lives === 1
-  ) {
-
-    $("survivalBanner")
-      .classList
-      .remove("hidden");
-
-    setTimeout(
-      () => {
-
-        $("survivalBanner")
-          .classList
-          .add("hidden");
-
-      },
-      900
-    );
-
-  }
-
-  setTimeout(
-    nextRound,
-    350
-  );
-
-}
-
-
-// ============================================================
-// HUD
-// ============================================================
-
-function updateHUD() {
-
-  $("score").textContent =
-    state.score.toLocaleString(
-      "fr-FR"
-    );
-
-  $("level").textContent =
-    state.level;
-
-  $("combo").textContent =
-    state.combo;
-
-  $("hearts").textContent =
-    "❤️".repeat(
-      state.lives
-    ) +
-    "🖤".repeat(
-      3 - state.lives
-    );
-
-}
-
-
-// ============================================================
-// CONFIGURATION SUPABASE
-// ============================================================
-
-function supabaseConfigured() {
-
-  return (
-    SUPABASE_URL.trim() !== "" &&
-    SUPABASE_KEY.trim() !== "" &&
-    SUPABASE_URL.includes(
-      "supabase.co"
-    )
-  );
-
-}
-
-
-function supabaseHeaders() {
-
-  return {
-
-    "apikey":
-      SUPABASE_KEY,
-
-    "Authorization":
-      "Bearer " +
-      SUPABASE_KEY,
-
-    "Content-Type":
-      "application/json",
-
-    "Prefer":
-      "return=representation"
-
-  };
-
-}
-
-
-// ============================================================
-// SAUVEGARDER LE SCORE DANS SUPABASE
-// ============================================================
+/* =========================================================
+   ENREGISTREMENT DU SCORE
+   ========================================================= */
 
 async function saveScoreToSupabase() {
 
   if (!supabaseConfigured()) {
 
-    console.warn(
-      "Supabase n'est pas configuré. Score conservé localement."
+    console.error(
+      "Supabase n'est pas configuré."
     );
 
-    return;
-
+    return false;
   }
+
+
+  const playerName =
+    normalizePlayerName(
+      state.player
+    );
+
+
+  if (!playerName) {
+
+    console.error(
+      "Pseudo vide."
+    );
+
+    return false;
+  }
+
+
+  /*
+    Une clé propre à ce pseudo
+    sur cet appareil.
+  */
+
+  state.playerKey =
+    getPlayerKeyForName(
+      playerName
+    );
+
 
   try {
 
-    const playerName =
-      state.player.trim();
-
-    if (!playerName) {
-
-      return;
-
-    }
-
-
-    // --------------------------------------------------------
-    // CHERCHER LE JOUEUR
-    // --------------------------------------------------------
+    /* =====================================================
+       1. CHERCHER SI CE JOUEUR EXISTE DÉJÀ
+       ===================================================== */
 
     const searchUrl =
       SUPABASE_URL +
       "/rest/v1/scores" +
-      "?select=id,player_name,score,max_combo,level,updated_at" +
-      "&player_name=eq." +
+      "?select=id,player_name,player_key,score,max_combo,level" +
+      "&player_key=eq." +
       encodeURIComponent(
-        playerName
+        state.playerKey
       ) +
       "&limit=1";
+
 
     const searchResponse =
       await fetch(
         searchUrl,
         {
           method: "GET",
-          headers:
-            supabaseHeaders()
+          headers: supabaseHeaders()
         }
       );
+
 
     if (!searchResponse.ok) {
 
       const errorText =
         await searchResponse.text();
 
-      throw new Error(
-        "Recherche du joueur impossible : " +
+      console.error(
+        "ERREUR RECHERCHE JOUEUR :",
         errorText
       );
 
+      return false;
     }
+
 
     const existingRows =
       await searchResponse.json();
 
 
-    // --------------------------------------------------------
-    // JOUEUR EXISTANT
-    // --------------------------------------------------------
+    /* =====================================================
+       2. LE JOUEUR EXISTE
+       ===================================================== */
 
-    if (
-      existingRows.length > 0
-    ) {
+    if (existingRows.length > 0) {
 
       const existing =
         existingRows[0];
 
+
+      const oldScore =
+        Number(
+          existing.score || 0
+        );
+
+
+      const newScore =
+        Number(
+          state.score || 0
+        );
+
+
+      /*
+        On conserve toujours
+        le meilleur score.
+      */
+
       if (
-        Number(existing.score || 0) >=
-        Number(state.score)
+        newScore <= oldScore
       ) {
 
         console.log(
-          "Score non sauvegardé : le joueur possède déjà un meilleur score."
+          "Ancien record conservé :",
+          oldScore
         );
 
-        return;
-
+        return true;
       }
+
 
       const updateUrl =
         SUPABASE_URL +
@@ -787,19 +408,18 @@ async function saveScoreToSupabase() {
           existing.id
         );
 
+
       const updateResponse =
         await fetch(
           updateUrl,
           {
-
             method: "PATCH",
 
-            headers: {
-              ...supabaseHeaders(),
-
-              "Prefer":
-                "return=representation"
-            },
+            headers:
+              supabaseHeaders({
+                "Prefer":
+                  "return=representation"
+              }),
 
             body:
               JSON.stringify({
@@ -807,771 +427,1555 @@ async function saveScoreToSupabase() {
                 player_name:
                   playerName,
 
+                player_key:
+                  state.playerKey,
+
                 score:
-                  state.score,
+                  newScore,
 
                 max_combo:
-                  state.maxCombo,
+                  Number(
+                    state.maxCombo || 0
+                  ),
 
                 level:
-                  state.level,
+                  Number(
+                    state.level || 1
+                  ),
 
                 updated_at:
                   new Date().toISOString()
 
               })
-
           }
         );
+
 
       if (!updateResponse.ok) {
 
         const errorText =
           await updateResponse.text();
 
-        throw new Error(
-          "Mise à jour impossible : " +
+        console.error(
+          "ERREUR MISE À JOUR SCORE :",
           errorText
         );
 
+        return false;
       }
 
+
       console.log(
-        "Nouveau meilleur score enregistré dans Supabase."
+        "✓ Nouveau record enregistré :",
+        playerName,
+        newScore
       );
 
-      return;
 
+      return true;
     }
 
 
-    // --------------------------------------------------------
-    // NOUVEAU JOUEUR
-    // --------------------------------------------------------
+    /* =====================================================
+       3. NOUVEAU JOUEUR
+       ===================================================== */
 
     const insertUrl =
       SUPABASE_URL +
       "/rest/v1/scores";
 
+
+    const insertData = {
+
+      player_name:
+        playerName,
+
+      player_key:
+        state.playerKey,
+
+      score:
+        Number(
+          state.score || 0
+        ),
+
+      max_combo:
+        Number(
+          state.maxCombo || 0
+        ),
+
+      level:
+        Number(
+          state.level || 1
+        ),
+
+      updated_at:
+        new Date().toISOString()
+
+    };
+
+
+    console.log(
+      "Envoi du score à Supabase :",
+      insertData
+    );
+
+
     const insertResponse =
       await fetch(
         insertUrl,
         {
-
           method: "POST",
 
-          headers: {
-            ...supabaseHeaders(),
-
-            "Prefer":
-              "return=representation"
-          },
+          headers:
+            supabaseHeaders({
+              "Prefer":
+                "return=representation"
+            }),
 
           body:
-            JSON.stringify({
-
-              player_name:
-                playerName,
-
-              score:
-                state.score,
-
-              max_combo:
-                state.maxCombo,
-
-              level:
-                state.level,
-
-              updated_at:
-                new Date().toISOString()
-
-            })
-
+            JSON.stringify(
+              insertData
+            )
         }
       );
+
 
     if (!insertResponse.ok) {
 
       const errorText =
         await insertResponse.text();
 
-      throw new Error(
-        "Enregistrement impossible : " +
+      console.error(
+        "ERREUR INSERTION SCORE :",
         errorText
       );
 
+      return false;
     }
 
+
+    const insertedData =
+      await insertResponse.json();
+
+
     console.log(
-      "Nouveau joueur enregistré dans Supabase."
+      "================================="
+    );
+
+    console.log(
+      "✓ NOUVEAU JOUEUR ENREGISTRÉ"
+    );
+
+    console.log(
+      insertedData
+    );
+
+    console.log(
+      "================================="
+    );
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "ERREUR SUPABASE :",
+      error
+    );
+
+    return false;
+  }
+}
+
+
+/* =========================================================
+   CHARGER LE CLASSEMENT MONDIAL
+   ========================================================= */
+
+async function loadLeaderboard() {
+
+  if (!supabaseConfigured()) {
+
+    console.error(
+      "Supabase n'est pas configuré."
+    );
+
+    return [];
+  }
+
+
+  try {
+
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/scores" +
+      "?select=id,player_name,player_key,score,max_combo,level,created_at,updated_at" +
+      "&order=score.desc" +
+      "&limit=" +
+      MAX_LEADERBOARD;
+
+
+    const response =
+      await fetch(
+        url,
+        {
+          method: "GET",
+          headers: supabaseHeaders()
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const errorText =
+        await response.text();
+
+      console.error(
+        "ERREUR CHARGEMENT CLASSEMENT :",
+        errorText
+      );
+
+      return [];
+    }
+
+
+    const data =
+      await response.json();
+
+
+    /*
+      Sécurité :
+      tri supplémentaire côté navigateur.
+    */
+
+    data.sort(
+      (a, b) =>
+        Number(
+          b.score || 0
+        ) -
+        Number(
+          a.score || 0
+        )
+    );
+
+
+    return data;
+
+  } catch (error) {
+
+    console.error(
+      "ERREUR RÉSEAU CLASSEMENT :",
+      error
+    );
+
+    return [];
+  }
+}
+
+
+/* =========================================================
+   AFFICHER LE CLASSEMENT
+   ========================================================= */
+
+async function renderLeaderboard() {
+
+  const list =
+    $("leaderboardList");
+
+
+  if (!list) {
+    return;
+  }
+
+
+  list.innerHTML =
+    '<div class="loading">Chargement du classement...</div>';
+
+
+  const data =
+    await loadLeaderboard();
+
+
+  if (!data.length) {
+
+    list.innerHTML =
+      '<div class="empty">Aucun joueur enregistré.</div>';
+
+
+    if ($("myRank")) {
+
+      $("myRank").textContent =
+        "";
+
+    }
+
+
+    return;
+  }
+
+
+  list.innerHTML = "";
+
+
+  let currentPlayerRank =
+    null;
+
+
+  data.forEach(
+    (player, index) => {
+
+      const rank =
+        index + 1;
+
+
+      const row =
+        document.createElement(
+          "div"
+        );
+
+
+      row.className =
+        "leaderboard-row";
+
+
+      /*
+        Reconnaître le joueur
+        avec player_key.
+      */
+
+      if (
+        state.playerKey &&
+        player.player_key ===
+        state.playerKey
+      ) {
+
+        row.classList.add(
+          "current-player"
+        );
+
+        currentPlayerRank =
+          rank;
+
+      }
+
+
+      const rankElement =
+        document.createElement(
+          "div"
+        );
+
+
+      rankElement.className =
+        "rank";
+
+
+      rankElement.textContent =
+        "#" + rank;
+
+
+      const nameElement =
+        document.createElement(
+          "div"
+        );
+
+
+      nameElement.className =
+        "player-name";
+
+
+      nameElement.textContent =
+        player.player_name;
+
+
+      const scoreElement =
+        document.createElement(
+          "div"
+        );
+
+
+      scoreElement.className =
+        "player-score";
+
+
+      scoreElement.textContent =
+        Number(
+          player.score || 0
+        );
+
+
+      row.appendChild(
+        rankElement
+      );
+
+
+      row.appendChild(
+        nameElement
+      );
+
+
+      row.appendChild(
+        scoreElement
+      );
+
+
+      list.appendChild(
+        row
+      );
+
+    }
+  );
+
+
+  if ($("myRank")) {
+
+    if (
+      currentPlayerRank
+    ) {
+
+      $("myRank").textContent =
+        "Votre classement : #" +
+        currentPlayerRank;
+
+    } else {
+
+      $("myRank").textContent =
+        "";
+
+    }
+
+  }
+}
+
+
+/* =========================================================
+   CLASSEMENT LOCAL DE SECOURS
+   ========================================================= */
+
+function saveLocalRanking() {
+
+  try {
+
+    const key =
+      "defi_expert_local_ranking";
+
+
+    const ranking =
+      JSON.parse(
+        localStorage.getItem(
+          key
+        ) || "[]"
+      );
+
+
+    const playerName =
+      normalizePlayerName(
+        state.player
+      );
+
+
+    if (!playerName) {
+      return;
+    }
+
+
+    const existing =
+      ranking.find(
+        player =>
+          player.player_key ===
+          state.playerKey
+      );
+
+
+    if (existing) {
+
+      if (
+        Number(state.score) >
+        Number(existing.score)
+      ) {
+
+        existing.score =
+          Number(
+            state.score
+          );
+
+
+        existing.max_combo =
+          Number(
+            state.maxCombo
+          );
+
+
+        existing.level =
+          Number(
+            state.level
+          );
+
+      }
+
+    } else {
+
+      ranking.push({
+
+        player_name:
+          playerName,
+
+        player_key:
+          state.playerKey,
+
+        score:
+          Number(
+            state.score
+          ),
+
+        max_combo:
+          Number(
+            state.maxCombo
+          ),
+
+        level:
+          Number(
+            state.level
+          ),
+
+        updated_at:
+          new Date().toISOString()
+
+      });
+
+    }
+
+
+    ranking.sort(
+      (a, b) =>
+        Number(b.score) -
+        Number(a.score)
+    );
+
+
+    localStorage.setItem(
+      key,
+      JSON.stringify(
+        ranking.slice(
+          0,
+          MAX_LEADERBOARD
+        )
+      )
     );
 
   } catch (error) {
 
     console.error(
-      "Erreur Supabase :",
+      "Erreur classement local :",
       error
     );
-
   }
-
 }
 
 
-// ============================================================
-// CHARGER LE CLASSEMENT
-// ============================================================
+/* =========================================================
+   AFFICHER UN ÉCRAN
+   ========================================================= */
 
-async function loadLeaderboard() {
+function showScreen(id) {
 
-  const container =
-    $("leaderboardList");
+  const screens = [
+    "home",
+    "how",
+    "leaderboard",
+    "about",
+    "game",
+    "gameover"
+  ];
 
-  const myRank =
-    $("myRank");
 
-  container.innerHTML =
-    `<div class="leaderboard-loading">
-      Chargement du classement...
-    </div>`;
+  screens.forEach(
+    screenId => {
 
-  myRank.classList.add(
-    "hidden"
+      const element =
+        $(screenId);
+
+
+      if (!element) {
+        return;
+      }
+
+
+      element.style.display =
+        screenId === id
+          ? ""
+          : "none";
+
+    }
   );
 
 
-  // ----------------------------------------------------------
-  // SUPABASE
-  // ----------------------------------------------------------
-
   if (
-    supabaseConfigured()
+    id === "leaderboard"
   ) {
 
-    try {
+    renderLeaderboard();
 
-      const url =
-        SUPABASE_URL +
-        "/rest/v1/scores" +
-        "?select=player_name,score,max_combo,level,updated_at" +
-        "&order=score.desc" +
-        "&limit=50";
+  }
+}
 
-      const response =
-        await fetch(
-          url,
-          {
-            method: "GET",
 
-            headers:
-              supabaseHeaders()
-          }
-        );
+/* =========================================================
+   NOM DU JOUEUR
+   ========================================================= */
 
-      if (!response.ok) {
+function updatePlayerName() {
 
-        throw new Error(
-          await response.text()
-        );
+  const input =
+    $("playerName");
 
-      }
 
-      const rows =
-        await response.json();
+  if (!input) {
+    return;
+  }
 
-      renderLeaderboard(
-        rows
-      );
 
-      return;
+  const value =
+    normalizePlayerName(
+      input.value
+    );
 
-    } catch (error) {
 
-      console.error(
-        "Impossible de charger Supabase :",
-        error
-      );
+  if ($("startBtn")) {
 
-      container.innerHTML =
-        `<div class="leaderboard-error">
-          Impossible de charger le classement partagé.
-          <br><br>
-          Vérifie la configuration Supabase.
-        </div>`;
+    $("startBtn").disabled =
+      value.length < 2;
 
-      return;
+  }
+
+
+  if ($("nameError")) {
+
+    $("nameError").textContent =
+      "";
+
+  }
+}
+
+
+/* =========================================================
+   EFFACER LE NOM
+   ========================================================= */
+
+function clearPlayerName() {
+
+  const input =
+    $("playerName");
+
+
+  if (input) {
+
+    input.value = "";
+
+    input.focus();
+
+  }
+
+
+  updatePlayerName();
+}
+
+
+/* =========================================================
+   DÉMARRER LE JEU
+   ========================================================= */
+
+function startGame() {
+
+  const input =
+    $("playerName");
+
+
+  const playerName =
+    normalizePlayerName(
+      input
+        ? input.value
+        : ""
+    );
+
+
+  if (
+    playerName.length < 2
+  ) {
+
+    if ($("nameError")) {
+
+      $("nameError").textContent =
+        "Entre un pseudo d'au moins 2 caractères.";
 
     }
 
+    return;
   }
 
 
-  // ----------------------------------------------------------
-  // MODE LOCAL
-  // ----------------------------------------------------------
+  /*
+    IMPORTANT :
+    Chaque pseudo possède sa propre clé.
+  */
 
-  const localRanking =
-    getLocalRanking();
+  state.player =
+    playerName;
 
-  renderLeaderboard(
-    localRanking
+
+  state.playerKey =
+    getPlayerKeyForName(
+      playerName
+    );
+
+
+  state.score = 0;
+
+  state.level = 1;
+
+  state.combo = 0;
+
+  state.maxCombo = 0;
+
+  state.lives = 3;
+
+  state.timeLeft =
+    GAME_TIME;
+
+  state.gameRunning =
+    true;
+
+
+  if ($("gamePlayer")) {
+
+    $("gamePlayer").textContent =
+      playerName;
+
+  }
+
+
+  showScreen(
+    "game"
   );
 
+
+  updateGameDisplay();
+
+  nextQuestion();
+
+  startTimer();
 }
 
 
-// ============================================================
-// CLASSEMENT LOCAL
-// ============================================================
+/* =========================================================
+   TIMER
+   ========================================================= */
 
-function getLocalRanking() {
+function startTimer() {
 
-  try {
+  stopTimer();
 
-    return (
-      JSON.parse(
-        localStorage.getItem(
-          "defiExpertRanking"
+
+  state.timer =
+    setInterval(
+      () => {
+
+        if (
+          !state.gameRunning
+        ) {
+
+          return;
+
+        }
+
+
+        state.timeLeft--;
+
+
+        updateTimer();
+
+
+        if (
+          state.timeLeft <= 0
+        ) {
+
+          endGame();
+
+        }
+
+      },
+      1000
+    );
+}
+
+
+/* =========================================================
+   STOP TIMER
+   ========================================================= */
+
+function stopTimer() {
+
+  if (state.timer) {
+
+    clearInterval(
+      state.timer
+    );
+
+    state.timer = null;
+
+  }
+}
+
+
+/* =========================================================
+   TIMER
+   ========================================================= */
+
+function updateTimer() {
+
+  if ($("timerBar")) {
+
+    const percentage =
+      Math.max(
+        0,
+        (
+          state.timeLeft /
+          GAME_TIME
+        ) * 100
+      );
+
+
+    $("timerBar").style.width =
+      percentage + "%";
+
+  }
+
+
+  if ($("statusText")) {
+
+    $("statusText").textContent =
+      state.timeLeft +
+      " s";
+
+  }
+}
+
+
+/* =========================================================
+   QUESTION SUIVANTE
+   ========================================================= */
+
+function nextQuestion() {
+
+  if (
+    !state.gameRunning
+  ) {
+
+    return;
+
+  }
+
+
+  const randomIndex =
+    Math.floor(
+      Math.random() *
+      QUESTIONS.length
+    );
+
+
+  state.currentQuestion =
+    QUESTIONS[
+      randomIndex
+    ];
+
+
+  state.currentAnswer =
+    state.currentQuestion.answer;
+
+
+  if ($("targetSymbol")) {
+
+    $("targetSymbol").textContent =
+      SYMBOLS[
+        Math.floor(
+          Math.random() *
+          SYMBOLS.length
         )
-      ) || []
-    );
-
-  } catch {
-
-    return [];
+      ];
 
   }
 
+
+  renderBoard();
 }
 
 
-function saveLocalRanking() {
+/* =========================================================
+   PLATEAU
+   ========================================================= */
 
-  let ranking =
-    getLocalRanking();
+function renderBoard() {
 
-  const existing =
-    ranking.find(
-      (item) =>
-        item.player_name
-          .toLowerCase() ===
-        state.player
-          .toLowerCase()
-    );
+  const board =
+    $("board");
 
-  if (
-    existing &&
-    Number(existing.score) >=
-    state.score
-  ) {
 
+  if (!board) {
     return;
-
   }
 
-  ranking =
-    ranking.filter(
-      (item) =>
-        item.player_name
-          .toLowerCase() !==
-        state.player
-          .toLowerCase()
+
+  board.innerHTML = "";
+
+
+  const answer =
+    String(
+      state.currentAnswer
     );
 
-  ranking.push({
 
-    player_name:
-      state.player,
-
-    score:
-      state.score,
-
-    max_combo:
-      state.maxCombo,
-
-    level:
-      state.level,
-
-    updated_at:
-      new Date().toISOString()
-
-  });
-
-  ranking.sort(
-    (a, b) =>
-      Number(b.score) -
-      Number(a.score)
-  );
-
-  ranking =
-    ranking.slice(
-      0,
-      50
-    );
-
-  localStorage.setItem(
-    "defiExpertRanking",
-    JSON.stringify(
-      ranking
-    )
-  );
-
-}
+  const choices = [
+    answer
+  ];
 
 
-// ============================================================
-// AFFICHAGE DU CLASSEMENT
-// ============================================================
-
-function renderLeaderboard(
-  rows
-) {
-
-  const container =
-    $("leaderboardList");
-
-  const myRank =
-    $("myRank");
-
-  if (
-    !rows ||
-    rows.length === 0
+  while (
+    choices.length < 4
   ) {
 
-    container.innerHTML =
-      `<div class="leaderboard-empty">
-        🏆<br><br>
-        Aucun score enregistré pour le moment.
-        <br>
-        Sois le premier à entrer dans le classement !
-      </div>`;
+    let fake;
 
-    return;
-
-  }
-
-  container.innerHTML =
-    "";
-
-  rows.forEach(
-    (row, index) => {
-
-      const rank =
-        index + 1;
-
-      const item =
-        document.createElement(
-          "div"
-        );
-
-      item.className =
-        "leaderboard-row";
-
-      let medal =
-        rank + "e";
-
-      if (
-        rank === 1
-      ) {
-
-        medal = "🥇";
-
-      } else if (
-        rank === 2
-      ) {
-
-        medal = "🥈";
-
-      } else if (
-        rank === 3
-      ) {
-
-        medal = "🥉";
-
-      }
-
-      const name =
-        escapeHTML(
-          row.player_name ||
-          "Joueur"
-        );
-
-      const score =
-        Number(
-          row.score || 0
-        ).toLocaleString(
-          "fr-FR"
-        );
-
-      const date =
-        formatDate(
-          row.updated_at
-        );
-
-      item.innerHTML = `
-
-        <div class="leaderboard-rank">
-          ${medal}
-        </div>
-
-        <div>
-          <div class="leaderboard-name">
-            ${name}
-          </div>
-
-          <span class="leaderboard-date">
-            Niveau ${Number(row.level || 1)}
-            · Combo ${Number(row.max_combo || 0)}
-            ${date ? " · " + date : ""}
-          </span>
-        </div>
-
-        <div class="leaderboard-score">
-          ${score}
-        </div>
-
-      `;
-
-      container.appendChild(
-        item
-      );
-
-    }
-  );
-
-
-  // ----------------------------------------------------------
-  // POSITION DU JOUEUR
-  // ----------------------------------------------------------
-
-  if (
-    state.player
-  ) {
-
-    const index =
-      rows.findIndex(
-        (row) =>
-          String(
-            row.player_name || ""
-          ).toLowerCase() ===
-          state.player.toLowerCase()
-      );
 
     if (
-      index >= 0
+      !isNaN(
+        Number(answer)
+      )
     ) {
 
-      myRank.innerHTML =
-        `👤 <strong>${escapeHTML(state.player)}</strong>
-         — position <strong>#${index + 1}</strong>
-         avec <strong>${Number(rows[index].score || 0).toLocaleString("fr-FR")}</strong> points`;
+      fake =
+        String(
+          Math.max(
+            0,
+            Number(answer) +
+            Math.floor(
+              Math.random() *
+              21
+            ) -
+            10
+          )
+        );
 
-      myRank.classList.remove(
-        "hidden"
-      );
+    } else {
+
+      fake =
+        answer +
+        Math.floor(
+          Math.random() *
+          9
+        );
+
+    }
+
+
+    if (
+      !choices.includes(fake)
+    ) {
+
+      choices.push(fake);
 
     }
 
   }
 
-}
 
-
-// ============================================================
-// PROTECTION HTML
-// ============================================================
-
-function escapeHTML(value) {
-
-  return String(value)
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
-}
-
-
-function formatDate(value) {
-
-  if (!value) {
-
-    return "";
-
-  }
-
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-
-    return "";
-
-  }
-
-  return date.toLocaleDateString(
-    "fr-FR"
-  );
-
-}
-
-
-// ============================================================
-// FIN DE PARTIE
-// ============================================================
-
-function endGame() {
-
-  state.running =
-    false;
-
-  clearTimeout(
-    state.timer
-  );
-
-  const key =
-    "defiExpertBest_" +
-    state.player.toLowerCase();
-
-  state.best =
-    Number(
-      localStorage.getItem(
-        key
-      ) || 0
-    );
-
-  const isNew =
-    state.score >
-    state.best;
-
-  if (isNew) {
-
-    state.best =
-      state.score;
-
-    localStorage.setItem(
-      key,
-      state.best
-    );
-
-  }
-
-
-  // Sauvegarde locale
-  saveLocalRanking();
-
-
-  // Sauvegarde Supabase
-  saveScoreToSupabase();
-
-
-  $("finalPlayer")
-    .textContent =
-    state.player;
-
-  $("finalScore")
-    .textContent =
-    state.score.toLocaleString(
-      "fr-FR"
-    );
-
-  $("finalBest")
-    .textContent =
-    state.best.toLocaleString(
-      "fr-FR"
-    );
-
-  $("finalCombo")
-    .textContent =
-    state.maxCombo;
-
-  $("finalLevel")
-    .textContent =
-    state.level;
-
-  $("newRecord")
-    .classList
-    .toggle(
-      "hidden",
-      !isNew
-    );
-
-  show("gameover");
-
-}
-
-
-// ============================================================
-// BOUTONS
-// ============================================================
-
-$("startBtn")
-  .addEventListener(
-    "click",
-    startGame
-  );
-
-
-$("againBtn")
-  .addEventListener(
-    "click",
-    startGame
-  );
-
-
-$("changePlayerBtn")
-  .addEventListener(
-    "click",
-    () => {
-
-      show("home");
-
-      $("playerName").focus();
-
-      $("playerName").select();
-
-    }
-  );
-
-
-$("homeBtn")
-  .addEventListener(
-    "click",
-    () => {
-
-      state.running =
-        false;
-
-      clearTimeout(
-        state.timer
-      );
-
-      show("home");
-
-    }
-  );
-
-
-$("howBtn")
-  .addEventListener(
-    "click",
+  choices.sort(
     () =>
-      show("how")
+      Math.random() -
+      0.5
   );
 
 
-$("leaderboardBtn")
-  .addEventListener(
-    "click",
-    () =>
-      show("leaderboard")
-  );
+  choices.forEach(
+    choice => {
+
+      const button =
+        document.createElement(
+          "button"
+        );
 
 
-$("aboutBtn")
-  .addEventListener(
-    "click",
-    () =>
-      show("about")
-  );
+      button.className =
+        "answer-btn";
 
 
-$("refreshLeaderboard")
-  .addEventListener(
-    "click",
-    () =>
-      loadLeaderboard()
-  );
+      button.textContent =
+        choice;
 
-
-document
-  .querySelectorAll(
-    "[data-back]"
-  )
-  .forEach(
-    (button) => {
 
       button.addEventListener(
         "click",
         () =>
-          show("home")
+          answerQuestion(
+            choice
+          )
+      );
+
+
+      board.appendChild(
+        button
       );
 
     }
   );
 
 
-$("quitBtn")
-  .addEventListener(
-    "click",
-    () => {
+  if ($("questionText")) {
 
-      state.running =
-        false;
+    $("questionText").textContent =
+      state.currentQuestion.question;
 
-      clearTimeout(
-        state.timer
-      );
-
-      show("home");
-
-    }
-  );
-
-
-$("playerName")
-  .addEventListener(
-    "keydown",
-    (event) => {
-
-      if (
-        event.key ===
-        "Enter"
-      ) {
-
-        startGame();
-
-      }
-
-    }
-  );
-
-
-// ============================================================
-// MESSAGE DE DÉMARRAGE
-// ============================================================
-
-console.log(
-  "DÉFI EXPERT — Créé par Belfort"
-);
-
-
-if (
-  !supabaseConfigured()
-) {
-
-  console.warn(
-    "Classement partagé désactivé : configure SUPABASE_URL et SUPABASE_KEY dans game.js."
-  );
-
+  }
 }
+
+
+/* =========================================================
+   RÉPONSE
+   ========================================================= */
+
+function answerQuestion(answer) {
+
+  if (
+    !state.gameRunning
+  ) {
+
+    return;
+
+  }
+
+
+  const buttons =
+    document.querySelectorAll(
+      ".answer-btn"
+    );
+
+
+  buttons.forEach(
+    button => {
+
+      button.disabled =
+        true;
+
+    }
+  );
+
+
+  const correct =
+    String(answer)
+      .toUpperCase() ===
+    String(
+      state.currentAnswer
+    )
+      .toUpperCase();
+
+
+  if (correct) {
+
+    state.combo++;
+
+
+    state.maxCombo =
+      Math.max(
+        state.maxCombo,
+        state.combo
+      );
+
+
+    const points =
+      100 +
+      state.level * 20 +
+      state.combo * 10;
+
+
+    state.score +=
+      points;
+
+
+    if (
+      state.combo % 5 === 0
+    ) {
+
+      state.level++;
+
+    }
+
+
+    if ($("statusText")) {
+
+      $("statusText").textContent =
+        "+" +
+        points +
+        " points";
+
+    }
+
+  } else {
+
+    state.combo = 0;
+
+    state.lives--;
+
+
+    if ($("statusText")) {
+
+      $("statusText").textContent =
+        "Mauvaise réponse";
+
+    }
+
+
+    if (
+      state.lives <= 0
+    ) {
+
+      setTimeout(
+        () => endGame(),
+        400
+      );
+
+      return;
+
+    }
+
+  }
+
+
+  updateGameDisplay();
+
+
+  setTimeout(
+    () => nextQuestion(),
+    450
+  );
+}
+
+
+/* =========================================================
+   AFFICHAGE DU JEU
+   ========================================================= */
+
+function updateGameDisplay() {
+
+  if ($("score")) {
+
+    $("score").textContent =
+      state.score;
+
+  }
+
+
+  if ($("level")) {
+
+    $("level").textContent =
+      state.level;
+
+  }
+
+
+  if ($("combo")) {
+
+    $("combo").textContent =
+      state.combo;
+
+  }
+
+
+  if ($("hearts")) {
+
+    $("hearts").textContent =
+      "❤️".repeat(
+        Math.max(
+          0,
+          state.lives
+        )
+      );
+
+  }
+
+
+  updateTimer();
+}
+
+
+/* =========================================================
+   FIN DE PARTIE
+   ========================================================= */
+
+async function endGame() {
+
+  if (
+    !state.gameRunning
+  ) {
+
+    return;
+
+  }
+
+
+  state.gameRunning =
+    false;
+
+
+  stopTimer();
+
+
+  /*
+    Sauvegarde locale de secours.
+  */
+
+  saveLocalRanking();
+
+
+  /*
+    Résultats.
+  */
+
+  if ($("finalPlayer")) {
+
+    $("finalPlayer").textContent =
+      state.player;
+
+  }
+
+
+  if ($("finalScore")) {
+
+    $("finalScore").textContent =
+      state.score;
+
+  }
+
+
+  if ($("finalBest")) {
+
+    $("finalBest").textContent =
+      state.score;
+
+  }
+
+
+  if ($("finalCombo")) {
+
+    $("finalCombo").textContent =
+      state.maxCombo;
+
+  }
+
+
+  if ($("finalLevel")) {
+
+    $("finalLevel").textContent =
+      state.level;
+
+  }
+
+
+  showScreen(
+    "gameover"
+  );
+
+
+  /*
+    IMPORTANT :
+    Attendre réellement Supabase.
+  */
+
+  const saved =
+    await saveScoreToSupabase();
+
+
+  if (saved) {
+
+    console.log(
+      "✓ SCORE ENREGISTRÉ DANS LE CLASSEMENT MONDIAL"
+    );
+
+  } else {
+
+    console.error(
+      "✗ SCORE NON ENREGISTRÉ DANS SUPABASE"
+    );
+
+  }
+
+
+  /*
+    Actualiser le classement
+    après l'enregistrement.
+  */
+
+  await renderLeaderboard();
+}
+
+
+/* =========================================================
+   REJOUER
+   ========================================================= */
+
+function playAgain() {
+
+  startGame();
+}
+
+
+/* =========================================================
+   CHANGER DE JOUEUR
+   ========================================================= */
+
+function changePlayer() {
+
+  state.gameRunning =
+    false;
+
+
+  stopTimer();
+
+
+  showScreen(
+    "home"
+  );
+}
+
+
+/* =========================================================
+   QUITTER
+   ========================================================= */
+
+function quitGame() {
+
+  state.gameRunning =
+    false;
+
+
+  stopTimer();
+
+
+  showScreen(
+    "home"
+  );
+}
+
+
+/* =========================================================
+   INITIALISATION
+   ========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    /* -----------------------------------------------------
+       PSEUDO
+       ----------------------------------------------------- */
+
+    if ($("playerName")) {
+
+      $("playerName").addEventListener(
+        "input",
+        updatePlayerName
+      );
+
+
+      $("playerName").addEventListener(
+        "keydown",
+        event => {
+
+          if (
+            event.key === "Enter"
+          ) {
+
+            startGame();
+
+          }
+
+        }
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       COMMENCER
+       ----------------------------------------------------- */
+
+    if ($("startBtn")) {
+
+      $("startBtn").addEventListener(
+        "click",
+        startGame
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       EFFACER
+       ----------------------------------------------------- */
+
+    if ($("clearName")) {
+
+      $("clearName").addEventListener(
+        "click",
+        clearPlayerName
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       COMMENT JOUER
+       ----------------------------------------------------- */
+
+    if ($("howBtn")) {
+
+      $("howBtn").addEventListener(
+        "click",
+        () =>
+          showScreen("how")
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       CLASSEMENT
+       ----------------------------------------------------- */
+
+    if ($("leaderboardBtn")) {
+
+      $("leaderboardBtn").addEventListener(
+        "click",
+        () =>
+          showScreen(
+            "leaderboard"
+          )
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       À PROPOS
+       ----------------------------------------------------- */
+
+    if ($("aboutBtn")) {
+
+      $("aboutBtn").addEventListener(
+        "click",
+        () =>
+          showScreen("about")
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       ACTUALISER CLASSEMENT
+       ----------------------------------------------------- */
+
+    if ($("refreshLeaderboard")) {
+
+      $("refreshLeaderboard").addEventListener(
+        "click",
+        renderLeaderboard
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       REJOUER
+       ----------------------------------------------------- */
+
+    if ($("againBtn")) {
+
+      $("againBtn").addEventListener(
+        "click",
+        playAgain
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       CHANGER DE JOUEUR
+       ----------------------------------------------------- */
+
+    if ($("changePlayerBtn")) {
+
+      $("changePlayerBtn").addEventListener(
+        "click",
+        changePlayer
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       ACCUEIL
+       ----------------------------------------------------- */
+
+    if ($("homeBtn")) {
+
+      $("homeBtn").addEventListener(
+        "click",
+        () =>
+          showScreen("home")
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       QUITTER
+       ----------------------------------------------------- */
+
+    if ($("quitBtn")) {
+
+      $("quitBtn").addEventListener(
+        "click",
+        quitGame
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       INITIALISATION
+       ----------------------------------------------------- */
+
+    updatePlayerName();
+
+    showScreen("home");
+
+
+    console.log(
+      "========================================"
+    );
+
+    console.log(
+      "DÉFI EXPERT — Créé par Belfort"
+    );
+
+    console.log(
+      "Classement partagé Supabase :",
+      supabaseConfigured()
+        ? "ACTIVÉ"
+        : "DÉSACTIVÉ"
+    );
+
+    console.log(
+      "========================================"
+    );
+
+  }
+);
